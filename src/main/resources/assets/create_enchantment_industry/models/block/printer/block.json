@@ -1,7 +1,6 @@
 {
   "credit": "By RaymondBlaze, made with Blockbench",
   "parent": "block/block",
-  "render_type": "cutout_mipped",
   "textures": {
     "tank": "create:block/spout",
     "tank_bottom": "create:block/encased_pipe",
@@ -69,21 +68,42 @@
       "from": [4, 4, 0],
       "to": [12, 12, 3],
       "faces": {
-        "north": {"uv": [8, 8, 16, 16], "texture": "#filter"},
-        "east": {"uv": [13, 0, 16, 8], "texture": "#filter"},
-        "south": {"uv": [0, 8, 8, 16], "texture": "#filter"},
-        "west": {"uv": [13, 8, 16, 0], "rotation": 180, "texture": "#filter"},
-        "up": {"uv": [13, 8, 16, 0], "rotation": 270, "texture": "#filter"},
-        "down": {"uv": [13, 0, 16, 8], "rotation": 90, "texture": "#filter"}
+        "north": {"uv": [8, 8, 16, 16], "texture": "#tank"},
+        "east": {"uv": [8, 8, 16, 16], "texture": "#tank"},
+        "south": {"uv": [8, 8, 16, 16], "texture": "#tank"},
+        "west": {"uv": [8, 8, 16, 16], "texture": "#tank"}
+      }
+    },
+    {
+      "from": [0, 13, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "north": {"uv": [16, 0, 0, 3], "texture": "#filter"},
+        "east": {"uv": [16, 0, 0, 3], "texture": "#filter"},
+        "south": {"uv": [16, 0, 0, 3], "texture": "#filter"},
+        "west": {"uv": [16, 0, 0, 3], "texture": "#filter"},
+        "up": {"uv": [0, 0, 16, 16], "texture": "#tank_bottom"}
       }
     }
   ],
-  "groups": [
-    {
-      "name": "tank",
-      "origin": [8, 8, 8],
-      "color": 0,
-      "children": [0, 1, 2, 3, 4, 5]
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [75, 45, 0],
+      "translation": [0, 2.5, 0],
+      "scale": [0.375, 0.375, 0.375]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [75, 45, 0],
+      "translation": [0, 2.5, 0],
+      "scale": [0.375, 0.375, 0.375]
+    },
+    "firstperson_righthand": {
+      "rotation": [0, 45, 0],
+      "scale": [0.4, 0.4, 0.4]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, 45, 0],
+      "scale": [0.4, 0.4, 0.4]
     }
-  ]
+  }
 }

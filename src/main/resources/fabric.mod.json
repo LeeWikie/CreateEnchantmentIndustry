@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "create_enchantment_industry",
+  "version": "${version}",
+  "name": "Create Enchantment Industry",
+  "description": "Fabric port of Create: Enchantment Industry for Create-Fly.",
+  "authors": [
+    "DragonsPlus"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "plus.dragons.createenchantmentindustry.CEI"
+    ],
+    "client": [
+      "plus.dragons.createenchantmentindustry.CEIClient"
+    ]
+  },
+  "mixins": [
+    "create_enchantment_industry.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": ">=26.1- <26.2-",
+    "java": ">=25",
+    "fabric-api": "*",
+    "create": "*"
+  }
+}

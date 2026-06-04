@@ -1,0 +1,16 @@
+{
+  "type": "create:item_application",
+  "ingredients": [
+    {
+      "item": "create:blaze_burner"
+    },
+    {
+      "item": "minecraft:enchanting_table"
+    }
+  ],
+  "results": [
+    {
+      "id": "create_enchantment_industry:blaze_enchanter"
+    }
+  ]
+}

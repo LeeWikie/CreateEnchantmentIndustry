@@ -1,7 +1,6 @@
 {
   "credit": "By RaymondBlaze, made with Blockbench",
   "parent": "block/block",
-  "render_type": "cutout_mipped",
   "textures": {
     "top": "create:block/item_drain_top",
     "front": "create_enchantment_industry:block/mechanical_grinder_front",
@@ -64,33 +63,28 @@
       "to": [12, 12, 17],
       "rotation": {"angle": 0, "axis": "y", "origin": [4, 3, 1]},
       "faces": {
-        "north": {"uv": [4, 4, 12, 12], "texture": "#front"},
-        "east": {"uv": [0, 4, 16, 12], "texture": "#bottom"},
-        "south": {"uv": [4, 4, 12, 12], "texture": "#back"},
-        "west": {"uv": [0, 4, 16, 12], "texture": "#bottom"},
-        "up": {"uv": [6.5, 0, 16, 6], "rotation": 270, "texture": "#inner"},
-        "down": {"uv": [4, 11, 12, 12], "texture": "#back"}
-      }
-    },
-    {
-      "from": [14, 5, 2],
-      "to": [2, 13, 14],
-      "rotation": {"angle": 0, "axis": "y", "origin": [14, 5, 2]},
-      "faces": {
-        "north": {"uv": [2, 3, 14, 11], "texture": "#side"},
-        "east": {"uv": [2, 3, 14, 11], "texture": "#side"},
-        "south": {"uv": [2, 3, 14, 11], "texture": "#side"},
-        "west": {"uv": [2, 3, 14, 11], "texture": "#side"},
-        "down": {"uv": [0, 0, 6, 6], "texture": "#inner"}
+        "north": {"uv": [4, 4, 12, 12], "texture": "#front"}
       }
     }
   ],
-  "groups": [
-    {
-      "name": "drain",
-      "origin": [8, 8, 8],
-      "color": 0,
-      "children": [0, 1, 2, 3, 4, 5]
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [75, 45, 0],
+      "translation": [0, 2.5, 0],
+      "scale": [0.375, 0.375, 0.375]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [75, 45, 0],
+      "translation": [0, 2.5, 0],
+      "scale": [0.375, 0.375, 0.375]
+    },
+    "firstperson_righthand": {
+      "rotation": [0, 45, 0],
+      "scale": [0.4, 0.4, 0.4]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, 45, 0],
+      "scale": [0.4, 0.4, 0.4]
     }
-  ]
+  }
 }

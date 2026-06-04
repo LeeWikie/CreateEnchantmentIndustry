@@ -1,0 +1,10 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "create_enchantment_industry:block/blaze_enchanter",
+        "uvlock": true
+      }
+    }
+  ]
+}

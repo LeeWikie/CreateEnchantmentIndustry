@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:binding_curse",
+      "required": false
+    },
+    {
+      "id": "minecraft:vanishing_curse",
+      "required": false
+    }
+  ]
+}

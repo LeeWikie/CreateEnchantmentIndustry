@@ -1,7 +1,6 @@
 {
   "credit": "By RaymondBlaze, made with Blockbench",
   "parent": "create:block/block",
-  "render_type": "cutout_mipped",
   "textures": {
     "hose": "create:block/hose",
     "head": "create:block/mechanical_press_head"

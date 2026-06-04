@@ -1,0 +1,15 @@
+{
+  "type": "create_enchantment_industry:printing",
+  "base": "minecraft:book",
+  "base_count": 1,
+  "template": "minecraft:paper",
+  "fluid_ingredient": {
+    "type": "fluid_stack",
+    "amount": 250,
+    "fluid": "create_enchantment_industry:experience"
+  },
+  "processing_time": 50,
+  "result": {
+    "id": "minecraft:writable_book"
+  }
+}

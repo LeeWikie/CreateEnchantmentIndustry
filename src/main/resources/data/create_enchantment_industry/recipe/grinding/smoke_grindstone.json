@@ -1,0 +1,16 @@
+{
+  "type": "create_enchantment_industry:grinding",
+  "ingredient": "minecraft:grindstone",
+  "processing_time": 20,
+  "results": [
+    {
+      "id": "minecraft:diamond"
+    }
+  ],
+  "fluid_results": [
+    {
+      "id": "create_enchantment_industry:experience",
+      "amount": 50
+    }
+  ]
+}

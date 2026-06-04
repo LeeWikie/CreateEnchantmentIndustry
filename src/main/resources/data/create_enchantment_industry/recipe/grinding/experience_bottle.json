@@ -1,0 +1,11 @@
+{
+  "type": "create_enchantment_industry:grinding",
+  "ingredient": "minecraft:experience_bottle",
+  "processing_time": 50,
+  "fluid_results": [
+    {
+      "id": "create_enchantment_industry:experience",
+      "amount": 3
+    }
+  ]
+}
