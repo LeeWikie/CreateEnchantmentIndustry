@@ -41,3 +41,7 @@ This port includes the core CEI content and systems for Create-Fly:
 - Fabric fluid storage, JSON config, Create-Fly movement/storage/arm behavior hooks, and safe optional integration omission
 
 Optional JEI/Ponder/Curios/TLM/Aeronautics/Sable integrations are intentionally omitted until compatible Fabric/Create-Fly APIs are available.
+
+## License
+
+This fork follows the original Create Enchantment Industry license: LGPL-3.0-or-later. See `LICENSE.txt`.
