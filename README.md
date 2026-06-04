@@ -18,10 +18,12 @@ By default the Gradle build expects Create-Fly to be checked out next to this pr
 ../Create-Fly/build/libs/create-fly-26.1.2-6.0.9-3.jar
 ```
 
-You can override that path with a Gradle property:
+You can override that path with a Gradle property. Use the included wrapper, or an installed Gradle 9.4+ if the wrapper distribution download is unavailable in your environment:
 
 ```bash
 ./gradlew clean build -Pcreate_fly_jar=/absolute/path/to/create-fly-26.1.2-6.0.9-3.jar
+# or
+gradle clean build -Pcreate_fly_jar=/absolute/path/to/create-fly-26.1.2-6.0.9-3.jar
 ```
 
 The main jar is generated under `build/libs/`.
