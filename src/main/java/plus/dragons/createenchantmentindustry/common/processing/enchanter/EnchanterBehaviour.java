@@ -1,93 +1,133 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.common.processing.enchanter;
 
-import com.google.common.collect.ImmutableList;
-import com.simibubi.create.AllBlocks;
-import com.simibubi.create.AllItems;
-import com.simibubi.create.AllSoundEvents;
-import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
-import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType;
-import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
-import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBoard;
-import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsFormatter;
-import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour;
-import com.simibubi.create.foundation.utility.CreateLang;
-import com.simibubi.create.infrastructure.config.AllConfigs;
 import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
-import dev.engine_room.flywheel.api.visualization.VisualizationLevel;
-import net.createmod.catnip.lang.LangBuilder;
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup.Provider;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
+import com.zurrtum.create.api.behaviour.BlockEntityBehaviour;
+import com.zurrtum.create.foundation.blockEntity.behaviour.BehaviourType;
+
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraft.world.phys.BlockHitResult;
-import plus.dragons.createenchantmentindustry.common.processing.enchanter.behaviour.EnchantingBehaviour;
-import plus.dragons.createenchantmentindustry.common.processing.enchanter.behaviour.TemplateEnchantingBehaviour;
-import plus.dragons.createenchantmentindustry.util.CEILang;
+import net.minecraft.world.item.enchantment.EnchantmentInstance;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import plus.dragons.createenchantmentindustry.common.fluids.experience.ExperienceHatchBehaviour;
+import plus.dragons.createenchantmentindustry.config.CEIConfig;
+import plus.dragons.createenchantmentindustry.registry.CEITags;
 
-public class EnchanterBehaviour extends ScrollValueBehaviour implements IHaveGoggleInformation {
-    public static final BehaviourType<EnchanterBehaviour> TYPE = new BehaviourType<>();
-    public static final String LEVEL = "EnchantingLevel";
-    public static final String TEMPLATE = "EnchantingTemplate";
-    private final BlazeEnchanterBlockEntity enchanter;
+public class EnchanterBehaviour extends BlockEntityBehaviour<BlazeEnchanterBlockEntity> {
+    public static final BehaviourType<EnchanterBehaviour> TYPE = new BehaviourType<>("cei_enchanter");
+    private static final String LEVEL_KEY = "EnchantingLevel";
+    private static final String TEMPLATE_KEY = "EnchantingTemplate";
+
     private ItemStack template = ItemStack.EMPTY;
-    private EnchantingBehaviour enchanting = new EnchantingBehaviour();
-    ValueBoxTransform.Sided templateItemTransform;
+    private int enchantingLevel = CEIConfig.enchantments().blazeEnchanterMaxEnchantLevel();
+    private List<EnchantmentInstance> enchantments = List.of();
 
-    public EnchanterBehaviour(BlazeEnchanterBlockEntity enchanter, ValueBoxTransform transform, ValueBoxTransform.Sided templateItemTransform) {
-        super(CEILang.translate("gui.blaze_enchanter.level").component(), enchanter, transform);
-        this.enchanter = enchanter;
-        this.templateItemTransform = templateItemTransform;
+    public EnchanterBehaviour(BlazeEnchanterBlockEntity blockEntity) {
+        super(blockEntity);
     }
 
-    public ValueBoxTransform getTemplateItemSlotPositioning() {
-        return templateItemTransform;
+    @Override
+    public BehaviourType<?> getType() {
+        return TYPE;
     }
 
     public boolean canProcess(ItemStack stack) {
-        return enchanting.canProcess(getWorld(), stack, enchanter.special);
-    }
-
-    public float getRenderDistance() {
-        return AllConfigs.client().filterItemRenderDistance.getF();
+        Level level = blockEntity.getLevel();
+        if (level == null || stack.isEmpty()) {
+            return false;
+        }
+        update(stack);
+        return !enchantments.isEmpty() && (template.isEmpty() ? stack.isEnchantable() : canProcessTemplate(stack));
     }
 
     public void update(ItemStack stack) {
-        enchanting.update(getWorld(), stack, value, enchanter.special, enchanter.cursed);
+        Level level = blockEntity.getLevel();
+        if (level == null || stack.isEmpty()) {
+            enchantments = List.of();
+            return;
+        }
+        ItemStack target = template.isEmpty() ? stack : template;
+        TagKey<Enchantment> tag = blockEntity.isSpecialEnchanting()
+                ? CEITags.BLAZE_ENCHANTER_SUPER_ENCHANTING
+                : CEITags.BLAZE_ENCHANTER_ENCHANTING;
+        int adjustedLevel = CEIEnchantmentHelper.getAdjustedLevel(target, enchantingLevel);
+        Iterable<net.minecraft.core.Holder<Enchantment>> holders = level.registryAccess()
+                .lookupOrThrow(Registries.ENCHANTMENT)
+                .getTagOrEmpty(tag);
+        enchantments = CEIEnchantmentHelper.getAvailableEnchantmentResults(adjustedLevel, filterDenied(StreamSupport.stream(holders.spliterator(), false)
+                .filter(holder -> holder.value().canEnchant(target)), EnchanterBehaviour::isDeniedByBlazeEnchanter));
     }
 
-    public ItemStack getResult(ItemStack stack) {
-        return enchanting.getResult(getWorld(), stack, enchanter.getRandom(), enchanter.special);
+    public ItemStack getResult(ItemStack stack, RandomSource random) {
+        if (enchantments.isEmpty()) {
+            return stack.copy();
+        }
+        ItemStack result = stack.copy();
+        List<EnchantmentInstance> selected = CEIEnchantmentHelper.selectEnchantments(
+                random,
+                CEIEnchantmentHelper.getAdjustedLevel(template.isEmpty() ? stack : template, enchantingLevel),
+                enchantments);
+        if (template.isEmpty() && stack.is(Items.BOOK) && selected.size() > 1) {
+            selected.remove(random.nextInt(selected.size()));
+        }
+        if (!template.isEmpty() && selected.size() > 1) {
+            selected.remove(random.nextInt(selected.size()));
+        }
+        return applySelectedEnchantments(result, selected);
+    }
+
+    static Stream<Holder<Enchantment>> filterDenied(
+            Stream<Holder<Enchantment>> holders,
+            Predicate<Holder<Enchantment>> denied) {
+        return holders.filter(denied.negate());
+    }
+
+    static boolean isDeniedByBlazeEnchanter(Holder<Enchantment> holder) {
+        return holder.is(CEITags.BLAZE_ENCHANTER_DENY);
+    }
+
+    static ItemStack applySelectedEnchantments(ItemStack stack, List<EnchantmentInstance> selected) {
+        ItemStack result = stack.copy();
+        if (result.getItem() instanceof EnchantingTemplateItem) {
+            ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+            for (EnchantmentInstance instance : selected) {
+                mutable.set(instance.enchantment(), instance.level());
+            }
+            result.set(DataComponents.STORED_ENCHANTMENTS, mutable.toImmutable());
+            return result;
+        }
+        ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+        for (EnchantmentInstance instance : selected) {
+            mutable.set(instance.enchantment(), instance.level());
+        }
+        EnchantmentHelper.setEnchantments(result, mutable.toImmutable());
+        return result;
     }
 
     public int getExperienceCost() {
-        return enchanting.getExperienceCost();
+        if (enchantments.isEmpty()) {
+            return 0;
+        }
+        int levelCost = Math.ceilDiv(enchantingLevel, 10);
+        int experienceCost = 0;
+        for (int index = 0; index < levelCost; index++) {
+            experienceCost += ExperienceHatchBehaviour.getExperienceForNextLevel(enchantingLevel - index);
+        }
+        return experienceCost;
     }
 
     public ItemStack getTemplate() {
@@ -97,131 +137,49 @@ public class EnchanterBehaviour extends ScrollValueBehaviour implements IHaveGog
     public boolean setTemplate(ItemStack stack) {
         if (stack.isEmpty()) {
             template = ItemStack.EMPTY;
-            enchanting = new EnchantingBehaviour();
         } else if (stack.isEnchantable()) {
-            template = stack;
-            enchanting = new TemplateEnchantingBehaviour(template);
-        } else return false;
-        update(enchanter.heldItem);
-        var level = getWorld();
-        if(!(level instanceof VisualizationLevel)){
-            blockEntity.setChanged();
-            blockEntity.sendData();
+            template = stack.copyWithCount(1);
+        } else {
+            return false;
         }
+        update(blockEntity.getHeldItem());
+        blockEntity.setChanged();
+        blockEntity.sendData();
         return true;
     }
 
-    @Override
-    public void setValue(int value) {
-        value = Mth.clamp(value, 0, enchanter.getMaxEnchantLevel());
-        if (value == this.value)
-            return;
-        this.value = value;
-        update(enchanter.heldItem);
+    public int getEnchantingLevel() {
+        return enchantingLevel;
+    }
+
+    public void setEnchantingLevel(int enchantingLevel) {
+        this.enchantingLevel = Mth.clamp(enchantingLevel, 1, blockEntity.getMaxEnchantLevel());
+        update(blockEntity.getHeldItem());
         blockEntity.setChanged();
         blockEntity.sendData();
     }
 
-    @Override
-    public BehaviourType<?> getType() {
-        return TYPE;
-    }
-
-    @Override
-    public ValueSettingsBoard createBoard(Player player, BlockHitResult hitResult) {
-        int max = enchanter.getMaxEnchantLevel();
-        return new ValueSettingsBoard(
-                label,
-                max,
-                max / 6,
-                ImmutableList.of(label),
-                new ValueSettingsFormatter(ValueSettings::format));
-    }
-
-    @Override
-    public void onShortInteract(Player player, InteractionHand hand, Direction side, BlockHitResult hitResult) {
-        var stack = player.getItemInHand(hand);
-        if (AllItems.WRENCH.isIn(stack))
-            return;
-        if (AllBlocks.MECHANICAL_ARM.isIn(stack))
-            return;
-        var level = getWorld();
-        var pos = getPos();
-        if (stack.isEmpty()) {
-            setTemplate(ItemStack.EMPTY);
-            level.playSound(null, pos, SoundEvents.ITEM_FRAME_REMOVE_ITEM, SoundSource.BLOCKS, .25f, .1f);
-            return;
+    private boolean canProcessTemplate(ItemStack stack) {
+        if (!(stack.getItem() instanceof EnchantingTemplateItem templateItem)) {
+            return false;
         }
-        if (!setTemplate(stack.copyWithCount(1))) {
-            player.displayClientMessage(CEILang.translate("gui.blaze_enchanter.template.invalid").component(), true);
-            AllSoundEvents.DENY.playOnServer(player.level(), player.blockPosition(), 1, 1);
-            return;
+        if (!stack.getOrDefault(DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY).isEmpty()) {
+            return false;
         }
-        level.playSound(null, pos, SoundEvents.ITEM_FRAME_ADD_ITEM, SoundSource.BLOCKS, .25f, .1f);
+        return templateItem.isSpecial() == blockEntity.isSpecialEnchanting();
     }
 
     @Override
-    public void write(CompoundTag nbt, Provider registries, boolean clientPacket) {
-        nbt.putInt(LEVEL, value);
-        nbt.put(TEMPLATE, template.saveOptional(registries));
+    public void write(ValueOutput view, boolean clientPacket) {
+        super.write(view, clientPacket);
+        view.putInt(LEVEL_KEY, enchantingLevel);
+        view.store(TEMPLATE_KEY, ItemStack.OPTIONAL_CODEC, template);
     }
 
     @Override
-    public void writeSafe(CompoundTag nbt, Provider registries) {
-        nbt.putInt(LEVEL, value);
-    }
-
-    @Override
-    public void read(CompoundTag nbt, Provider registries, boolean clientPacket) {
-        value = Math.clamp(nbt.getInt(LEVEL), 0, enchanter.getMaxEnchantLevel());
-        template = ItemStack.parseOptional(registries, nbt.getCompound(TEMPLATE));
-        var level = getWorld();
-        if (level != null)
-            setTemplate(template);
-    }
-
-    @Override
-    public void initialize() {
-        setTemplate(template);
-    }
-
-    @Override
-    public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
-        boolean added = false;
-        if (!template.isEmpty()) {
-            CEILang.translate("gui.goggles.enchanting.template").forGoggles(tooltip);
-            CEILang.item(template).style(ChatFormatting.GRAY).forGoggles(tooltip, 1);
-            added = true;
-        }
-        var style = enchanter.special
-                ? (enchanter.cursed ? ChatFormatting.RED : ChatFormatting.BLUE)
-                : ChatFormatting.GOLD;
-        if (value > 0) {
-            CEILang.translate("gui.goggles.enchanting.level", CEILang.number(value).style(style))
-                    .forGoggles(tooltip);
-            added = true;
-        } else {
-            CEILang.translate("gui.goggles.enchanting.level.not_set").style(ChatFormatting.RED).forGoggles(tooltip);
-        }
-        int cost = getExperienceCost();
-        if (cost > 0) {
-            LangBuilder mb = CreateLang.translate("generic.unit.millibuckets");
-            CEILang.translate("gui.goggles.enchanting.cost", CEILang.number(cost).add(mb).style(style))
-                    .forGoggles(tooltip);
-            added = true;
-        }
-        if (!enchanter.heldItem.isEmpty() && enchanter.processingTime == -1) {
-            if (!EnchantmentHelper.getEnchantmentsForCrafting(enchanter.heldItem).isEmpty()) {
-                CEILang.translate("gui.goggles.enchanting.completed").style(ChatFormatting.GREEN).forGoggles(tooltip);
-            } else if (cost > 0) {
-                int experience = enchanter.special ? enchanter.getSpecialExperience() : enchanter.getNormalExperience();
-                if (experience < cost) {
-                    CEILang.translate("gui.goggles.enchanting.insufficient_experience").style(ChatFormatting.RED).forGoggles(tooltip);
-                }
-            } else {
-                CEILang.translate("gui.goggles.enchanting.invalid_item").style(ChatFormatting.RED).forGoggles(tooltip);
-            }
-        }
-        return added;
+    public void read(ValueInput view, boolean clientPacket) {
+        super.read(view, clientPacket);
+        enchantingLevel = Mth.clamp(view.getIntOr(LEVEL_KEY, CEIConfig.enchantments().blazeEnchanterMaxEnchantLevel()), 0, blockEntity.getMaxEnchantLevel());
+        template = view.read(TEMPLATE_KEY, ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
     }
 }

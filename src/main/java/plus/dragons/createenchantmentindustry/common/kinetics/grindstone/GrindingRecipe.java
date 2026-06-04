@@ -1,123 +1,77 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.common.kinetics.grindstone;
 
-import com.simibubi.create.AllBlocks;
-import com.simibubi.create.AllRecipeTypes;
-import com.simibubi.create.compat.jei.category.sequencedAssembly.SequencedAssemblySubCategory;
-import com.simibubi.create.content.equipment.sandPaper.SandPaperPolishingRecipe;
-import com.simibubi.create.content.processing.recipe.ProcessingRecipeParams;
-import com.simibubi.create.content.processing.recipe.StandardProcessingRecipe;
-import com.simibubi.create.content.processing.sequenced.IAssemblyRecipe;
-
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Supplier;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.zurrtum.create.content.processing.recipe.ProcessingOutput;
+import com.zurrtum.create.foundation.fluid.FluidIngredient;
+import com.zurrtum.create.foundation.recipe.CreateSingleStackRollableRecipe;
+import com.zurrtum.create.foundation.recipe.TimedRecipe;
+import com.zurrtum.create.infrastructure.fluids.FluidStack;
+
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
-import net.minecraft.world.level.ItemLike;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.fluids.FluidStack;
-import plus.dragons.createenchantmentindustry.common.registry.CEIBlocks;
-import plus.dragons.createenchantmentindustry.common.registry.CEIRecipes;
-import plus.dragons.createenchantmentindustry.integration.jei.category.assembly.AssemblyGrindingCategory;
-import plus.dragons.createenchantmentindustry.util.CEILang;
+import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraft.world.item.crafting.RecipeType;
+import plus.dragons.createenchantmentindustry.registry.CEIRecipeTypes;
 
-public class GrindingRecipe extends StandardProcessingRecipe<SingleRecipeInput> implements IAssemblyRecipe {
-    public GrindingRecipe(ProcessingRecipeParams params) {
-        super(CEIRecipes.GRINDING, params);
-        if (fluidIngredients.size() + fluidResults.size() > 1)
-            throw new IllegalArgumentException("Grinding recipe can only have either 1 fluid input or 1 fluid result");
-    }
+public record GrindingRecipe(
+        int time,
+        List<ProcessingOutput> results,
+        List<FluidStack> fluidResults,
+        List<FluidIngredient> fluidIngredients,
+        Ingredient ingredient) implements CreateSingleStackRollableRecipe, TimedRecipe {
+    public static final int DEFAULT_PROCESSING_TIME = 50;
+    public static final MapCodec<GrindingRecipe> MAP_CODEC = RecordCodecBuilder.<GrindingRecipe>mapCodec(instance -> instance.group(
+            Codec.INT.optionalFieldOf("processing_time", DEFAULT_PROCESSING_TIME).forGetter(GrindingRecipe::time),
+            ProcessingOutput.CODEC.listOf(1, 4).optionalFieldOf("results", List.of()).forGetter(GrindingRecipe::results),
+            FluidStack.CODEC.listOf(1, 1).optionalFieldOf("fluid_results", List.of()).forGetter(GrindingRecipe::fluidResults),
+            FluidIngredient.CODEC.listOf(1, 1).optionalFieldOf("fluid_ingredients", List.of()).forGetter(GrindingRecipe::fluidIngredients),
+            Ingredient.CODEC.fieldOf("ingredient").forGetter(GrindingRecipe::ingredient))
+            .apply(instance, GrindingRecipe::new)).validate(GrindingRecipe::validate);
+    public static final StreamCodec<RegistryFriendlyByteBuf, GrindingRecipe> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.INT,
+            GrindingRecipe::time,
+            ProcessingOutput.STREAM_CODEC.apply(ByteBufCodecs.list()),
+            GrindingRecipe::results,
+            FluidStack.PACKET_CODEC.apply(ByteBufCodecs.list()),
+            GrindingRecipe::fluidResults,
+            FluidIngredient.PACKET_CODEC.apply(ByteBufCodecs.list()),
+            GrindingRecipe::fluidIngredients,
+            Ingredient.CONTENTS_STREAM_CODEC,
+            GrindingRecipe::ingredient,
+            GrindingRecipe::new);
+    public static final RecipeSerializer<GrindingRecipe> SERIALIZER = new RecipeSerializer<>(MAP_CODEC, STREAM_CODEC);
 
-    public static StandardProcessingRecipe.Builder<GrindingRecipe> builder(ResourceLocation id) {
-        return new StandardProcessingRecipe.Builder<>(GrindingRecipe::new, id);
-    }
-
-    public static Optional<RecipeHolder<GrindingRecipe>> fromPolishing(RecipeHolder<SandPaperPolishingRecipe> recipe) {
-        if (AllRecipeTypes.CAN_BE_AUTOMATED.test(recipe)) {
-            var id = recipe.id().withSuffix("_using_grindstone");
-            var polishing = recipe.value();
-            var grinding = builder(id)
-                    .require(polishing.getIngredients().getFirst())
-                    .output(polishing.getRollableResults().getFirst())
-                    .build();
-            return Optional.of(new RecipeHolder<>(id, grinding));
+    private static DataResult<GrindingRecipe> validate(GrindingRecipe recipe) {
+        if (recipe.time <= 0) {
+            return DataResult.error(() -> "Grinding recipe processing_time must be positive");
         }
-        return Optional.empty();
-    }
-
-    @Override
-    protected int getMaxInputCount() {
-        return 1;
-    }
-
-    @Override
-    protected int getMaxOutputCount() {
-        return 4;
-    }
-
-    @Override
-    protected int getMaxFluidOutputCount() {
-        return 1;
-    }
-
-    @Override
-    protected boolean canSpecifyDuration() {
-        return true;
-    }
-
-    @Override
-    public boolean matches(SingleRecipeInput input, Level level) {
-        return ingredients.getFirst().test(input.item());
-    }
-
-    @Override
-    public Component getDescriptionForAssembly() {
-        if (fluidIngredients.isEmpty()) {
-            return CEILang.translate("recipe.assembly.grinding").component();
-        } else {
-            List<FluidStack> matchingFluidStacks = Arrays.asList(fluidIngredients.getFirst().getFluids());
-            if (matchingFluidStacks.isEmpty()) {
-                return Component.literal("Invalid");
-            }
-            return CEILang.translate("recipe.assembly.grinding.needs_fluid",
-                    matchingFluidStacks.getFirst().getHoverName()).component();
+        if (recipe.results.isEmpty() && recipe.fluidResults.isEmpty()) {
+            return DataResult.error(() -> "Grinding recipe must have an item result or a fluid result");
         }
+        if (recipe.fluidIngredients.size() + recipe.fluidResults.size() > 1) {
+            return DataResult.error(() -> "Grinding recipe can have at most one fluid input or one fluid result");
+        }
+        return DataResult.success(recipe);
+    }
+
+    public int getProcessingDuration() {
+        return time;
     }
 
     @Override
-    public void addRequiredMachines(Set<ItemLike> required) {
-        required.add(CEIBlocks.MECHANICAL_GRINDSTONE);
-        required.add(AllBlocks.ITEM_DRAIN);
+    public RecipeSerializer<GrindingRecipe> getSerializer() {
+        return CEIRecipeTypes.GRINDING.serializer();
     }
 
     @Override
-    public void addAssemblyIngredients(List<Ingredient> list) {}
-
-    @Override
-    public Supplier<Supplier<SequencedAssemblySubCategory>> getJEISubCategory() {
-        return () -> AssemblyGrindingCategory::new;
+    public RecipeType<GrindingRecipe> getType() {
+        return CEIRecipeTypes.GRINDING.type();
     }
 }

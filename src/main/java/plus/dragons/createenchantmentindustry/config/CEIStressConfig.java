@@ -1,33 +1,41 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.config;
 
-import plus.dragons.createdragonsplus.config.StressConfig;
-import plus.dragons.createenchantmentindustry.common.CEICommon;
+import com.google.gson.JsonObject;
 
-public class CEIStressConfig extends StressConfig {
-    public CEIStressConfig() {
-        super(CEICommon.ID);
+public final class CEIStressConfig {
+    private static final double DEFAULT_MECHANICAL_GRINDSTONE_IMPACT = 4.0;
+    private static final double DEFAULT_GRINDSTONE_DRAIN_IMPACT = 4.0;
+
+    private final double mechanicalGrindstoneImpact;
+    private final double grindstoneDrainImpact;
+
+    private CEIStressConfig(double mechanicalGrindstoneImpact, double grindstoneDrainImpact) {
+        this.mechanicalGrindstoneImpact = mechanicalGrindstoneImpact;
+        this.grindstoneDrainImpact = grindstoneDrainImpact;
     }
 
-    @Override
-    protected int getVersion() {
-        return 1;
+    static CEIStressConfig defaults() {
+        return new CEIStressConfig(DEFAULT_MECHANICAL_GRINDSTONE_IMPACT, DEFAULT_GRINDSTONE_DRAIN_IMPACT);
+    }
+
+    static CEIStressConfig load(CEIConfig.ConfigReader reader) {
+        return new CEIStressConfig(
+                reader.readDouble("mechanicalGrindstoneImpact", DEFAULT_MECHANICAL_GRINDSTONE_IMPACT, 0.0, Double.MAX_VALUE),
+                reader.readDouble("grindstoneDrainImpact", DEFAULT_GRINDSTONE_DRAIN_IMPACT, 0.0, Double.MAX_VALUE));
+    }
+
+    JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("mechanicalGrindstoneImpact", mechanicalGrindstoneImpact);
+        json.addProperty("grindstoneDrainImpact", grindstoneDrainImpact);
+        return json;
+    }
+
+    public double mechanicalGrindstoneImpact() {
+        return mechanicalGrindstoneImpact;
+    }
+
+    public double grindstoneDrainImpact() {
+        return grindstoneDrainImpact;
     }
 }

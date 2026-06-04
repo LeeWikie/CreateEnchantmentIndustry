@@ -1,351 +1,234 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.common.processing.enchanter;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.simibubi.create.AllBlocks;
-import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
-import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
-import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
-import dev.engine_room.flywheel.lib.model.baked.PartialModel;
-import dev.engine_room.flywheel.lib.transform.TransformStack;
 import java.util.List;
-import java.util.function.Consumer;
-import net.createmod.catnip.math.AngleHelper;
-import net.createmod.catnip.math.VecHelper;
+
+import com.zurrtum.create.api.behaviour.BlockEntityBehaviour;
+import com.zurrtum.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
+
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
+import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup.Provider;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Clearable;
 import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import org.jetbrains.annotations.Nullable;
-import plus.dragons.createdragonsplus.common.advancements.AdvancementBehaviour;
-import plus.dragons.createdragonsplus.common.fluids.tank.ConfigurableFluidTank;
-import plus.dragons.createdragonsplus.util.FieldsNullabilityUnknownByDefault;
-import plus.dragons.createenchantmentindustry.client.model.CEIPartialModels;
-import plus.dragons.createenchantmentindustry.common.fluids.experience.BlazeExperienceBlockEntity;
-import plus.dragons.createenchantmentindustry.common.registry.CEIAdvancements;
-import plus.dragons.createenchantmentindustry.common.registry.CEIFluids;
-import plus.dragons.createenchantmentindustry.common.registry.CEIStats;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import plus.dragons.createenchantmentindustry.common.fluids.experience.ExperienceHatchBehaviour;
 import plus.dragons.createenchantmentindustry.config.CEIConfig;
+import plus.dragons.createenchantmentindustry.foundation.blaze.CEIBlazeBlockEntity;
+import plus.dragons.createenchantmentindustry.foundation.fluid.CEIConfigurableFluidTank;
+import plus.dragons.createenchantmentindustry.foundation.fluid.CEIFluidTankBehaviour;
+import plus.dragons.createenchantmentindustry.registry.CEIBlockEntityTypes;
+import plus.dragons.createenchantmentindustry.registry.CEIFluids;
 
-@FieldsNullabilityUnknownByDefault
-public class BlazeEnchanterBlockEntity extends BlazeExperienceBlockEntity implements Clearable {
-    public static final int ENCHANTING_TIME = 200;
-    protected EnchanterBehaviour enchanter;
-    protected boolean special;
-    protected boolean cursed;
-    protected Long seed;
-    protected int processingTime = -1;
-    protected ItemStack heldItem = ItemStack.EMPTY;
-    protected AdvancementBehaviour advancement;
+public class BlazeEnchanterBlockEntity extends CEIBlazeBlockEntity implements Clearable {
+    public static final long TANK_CAPACITY = CEIConfig.fluids().blazeEnchanterFluidCapacity();
+    public static final int PROCESSING_TICKS = 100;
+    public static final int EXPERIENCE_BOTTLE_AMOUNT = 7;
 
-    public BlazeEnchanterBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
-    }
+    private CEIFluidTankBehaviour fluidTankBehaviour;
+    private EnchanterBehaviour enchanter;
+    private ItemStack heldItem = ItemStack.EMPTY;
+    private int processingTicks = -1;
+    private long randomSeed = 0xC317_2026L;
 
-    public @Nullable IFluidHandler getFluidHandler(@Nullable Direction side) {
-        if ((side == Direction.DOWN || side == null) && !isRemoved())
-            return tanks.getCapability();
-        return null;
+    public BlazeEnchanterBlockEntity(BlockPos pos, BlockState state) {
+        super(CEIBlockEntityTypes.BLAZE_ENCHANTER, pos, state);
     }
 
     @Override
-    public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
+    public void addBehaviours(List<BlockEntityBehaviour<?>> behaviours) {
         super.addBehaviours(behaviours);
-        this.enchanter = new EnchanterBehaviour(this, new EnchanterTransform(), new TemplateItemTransform());
-        this.advancement = new AdvancementBehaviour(this);
-        behaviours.add(this.enchanter);
-        behaviours.add(this.advancement);
-    }
-
-    @Override
-    protected ConfigurableFluidTank createNormalTank(Consumer<FluidStack> fluidUpdateCallback) {
-        return new ConfigurableFluidTank(CEIConfig.fluids().blazeEnchanterFluidCapacity.get(), fluidUpdateCallback)
-                .allowInsertion(fluidStack -> fluidStack.is(CEIFluids.EXPERIENCE));
-    }
-
-    @Override
-    protected ConfigurableFluidTank createSpecialTank(Consumer<FluidStack> fluidUpdateCallback) {
-        return new ConfigurableFluidTank(CEIConfig.fluids().blazeEnchanterFluidCapacity.get(), fluidUpdateCallback)
-                .forbidInsertion();
-    }
-
-    @Override
-    public boolean isActive() {
-        return processingTime > 0;
-    }
-
-    @Override
-    @OnlyIn(Dist.CLIENT)
-    protected @Nullable PartialModel getHatModel(HeatLevel heatLevel) {
-        return heatLevel.isAtLeast(HeatLevel.FADING)
-                ? CEIPartialModels.BLAZE_ENCHANTER_HAT
-                : CEIPartialModels.BLAZE_ENCHANTER_HAT_SMALL;
-    }
-
-    @Override
-    public void initialize() {
-        super.initialize();
-        if (seed == null) {
-            nextSeed();
-            setChanged();
-        }
-    }
-
-    @Override
-    public void destroy() {
-        super.destroy();
-        if (level != null) {
-            Containers.dropItemStack(level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), heldItem);
-        }
-    }
-
-    @Override
-    public void write(CompoundTag compound, Provider registries, boolean clientPacket) {
-        super.write(compound, registries, clientPacket);
-        if (seed != null)
-            compound.putLong("Seed", seed);
-        compound.putInt("ProcessingTime", processingTime);
-        compound.put("HeldItem", heldItem.saveOptional(registries));
-    }
-
-    @Override
-    protected void read(CompoundTag compound, Provider registries, boolean clientPacket) {
-        super.read(compound, registries, clientPacket);
-        if (compound.contains("Seed", Tag.TAG_LONG))
-            seed = compound.getLong("Seed");
-        processingTime = compound.getInt("ProcessingTime");
-        heldItem = ItemStack.parseOptional(registries, compound.getCompound("HeldItem"));
+        behaviours.add(fluidTankBehaviour = CEIFluidTankBehaviour.singleLiquidExperience(this, TANK_CAPACITY));
+        behaviours.add(enchanter = new EnchanterBehaviour(this));
     }
 
     @Override
     public void tick() {
         super.tick();
-        boolean update = false;
-        boolean special = getHeatLevelFromBlock() == HeatLevel.SEETHING;
-        if (this.special != special) {
-            this.special = special;
-            update = true;
-        }
-        var strikePos = getStrikePos();
-        boolean cursed = special && !worldPosition.equals(strikePos);
-        if (this.cursed != cursed) {
-            this.cursed = cursed;
-            update = true;
-        }
-        if (level.isClientSide() && isVirtual()) {
-            if (update) enchanter.update(heldItem);
-            if (enchanter.canProcess(heldItem)) {
-                if (processingTime < 0) {
-                    processingTime = ENCHANTING_TIME / 4;
-                    return;
-                }
-                if (processingTime > 0) {
-                    processingTime--;
-                    return;
-                }
-                processingTime = -1;
-                heldItem = enchanter.getResult(heldItem);
-                return;
-            }
-        }
-        if (!(level instanceof ServerLevel serverLevel))
+        if (level == null || level.isClientSide() || heldItem.isEmpty() || processingTicks < 0) {
             return;
-        if (update) {
-            enchanter.update(heldItem);
         }
-        if (enchanter.canProcess(heldItem)) {
-            var cost = enchanter.getExperienceCost();
-            if (cost > 0 && consumeExperience(cost, special, true)) {
-                if (processingTime < 0) {
-                    processingTime = ENCHANTING_TIME;
-                    notifyUpdate();
-                    return;
-                }
-                if (processingTime > 0) {
-                    processingTime--;
-                    notifyUpdate();
-                    return;
-                }
-                if (special && !cursed && strikeLightning(serverLevel, strikePos)) {
-                    advancement.trigger(CEIAdvancements.OSHA_VIOLATION.builtinTrigger());
-                    serverLevel.destroyBlock(worldPosition, false);
-                    serverLevel.setBlockAndUpdate(worldPosition, AllBlocks.LIT_BLAZE_BURNER.getDefaultState());
-                    this.setRemoved();
-                    return;
-                }
-                processingTime = -1;
-                heldItem = enchanter.getResult(heldItem);
-                advancement.awardStat(CEIStats.ENCHANT.get(), 1);
-
-                if (heldItem.getItem() instanceof EnchantingTemplateItem) {
-                    advancement.trigger(CEIAdvancements.SIGIL_FORGING.builtinTrigger());
-                } else {
-                    advancement.trigger(CEIAdvancements.BLAZING_ENCHANTMENT.builtinTrigger());
-                }
-                if (special) {
-                    advancement.awardStat(CEIStats.SUPER_ENCHANT.get(), 1);
-                    boolean treasure = EnchantmentHelper.getEnchantmentsForCrafting(heldItem).keySet().stream().anyMatch(h -> h.is(EnchantmentTags.TREASURE));
-                    if (treasure)
-                        advancement.trigger(CEIAdvancements.PROBABILITY_SPIKE.builtinTrigger());
-                }
-
-                consumeExperience(cost, special, false);
-                nextSeed();
-                notifyUpdate();
-                level.playSound(null, worldPosition, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, 1.0F, level.random.nextFloat() * 0.1F + 0.9F);
-            } else {
-                if (processingTime != -1) {
-                    processingTime = -1;
-                    notifyUpdate();
-                }
-            }
-        } else if (processingTime != -1) {
-            processingTime = -1;
-            notifyUpdate();
+        if (processingTicks > 0) {
+            processingTicks--;
+            return;
         }
+        finishProcessing(false);
     }
 
-    public RandomSource getRandom() {
-        return RandomSource.create(seed);
+    public CEIFluidTankBehaviour getFluidTankBehaviour() {
+        return fluidTankBehaviour;
     }
 
-    public void nextSeed() {
-        assert level != null;
-        seed = level.random.nextLong();
+    public Storage<FluidVariant> getFluidStorage(Direction direction) {
+        return fluidTankBehaviour.getStorage();
+    }
+
+    public CEIConfigurableFluidTank getTank() {
+        return fluidTankBehaviour.getPrimaryHandler();
+    }
+
+    public EnchanterBehaviour getEnchanter() {
+        return enchanter;
+    }
+
+    public ItemStack getHeldItem() {
+        return heldItem;
+    }
+
+    public boolean isSpecialEnchanting() {
+        return false;
     }
 
     public int getMaxEnchantLevel() {
-        return getMaxEnchantLevel(getHeatLevel() == HeatLevel.SEETHING);
+        return CEIConfig.enchantments().blazeEnchanterMaxEnchantLevel();
     }
 
-    public int getMaxEnchantLevel(boolean special) {
-        int max = CEIConfig.enchantments().blazeEnchanterMaxEnchantLevel.get();
-        int maxSuper = CEIConfig.enchantments().blazeEnchanterMaxSuperEnchantLevel.get();
-        return special ? Math.max(max, maxSuper) : Math.clamp(max, 0, maxSuper);
+    public RandomSource getRandom() {
+        return RandomSource.create(randomSeed++);
     }
 
     public ItemStack insertItem(ItemStack stack, boolean simulate) {
-        assert level != null;
-        if (!heldItem.isEmpty())
-            return stack;
-        var input = stack.copy();
-        var inserted = input.split(1);
-        enchanter.update(inserted);
-        if (!enchanter.canProcess(inserted)) {
-            enchanter.update(ItemStack.EMPTY);
+        if (level == null || !heldItem.isEmpty() || stack.isEmpty()) {
             return stack;
         }
-        if (simulate)
-            return input;
-        heldItem = inserted;
-        notifyUpdate();
-        return input;
+        ItemStack remainder = stack.copy();
+        ItemStack inserted = remainder.split(1);
+        if (!enchanter.canProcess(inserted)) {
+            return stack;
+        }
+        if (!simulate) {
+            heldItem = inserted;
+            processingTicks = PROCESSING_TICKS;
+            notifyUpdate();
+        }
+        return remainder;
     }
 
     public ItemStack extractItem(boolean forced, boolean simulate) {
-        assert level != null;
-        ItemStack extracted = ItemStack.EMPTY;
-        if (forced || processingTime <= 0) {
-            extracted = heldItem.copy();
-            if (!simulate) {
-                heldItem = ItemStack.EMPTY;
-                processingTime = -1;
-                notifyUpdate();
-            }
+        if (heldItem.isEmpty() || (!forced && processingTicks > 0)) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack extracted = heldItem.copy();
+        if (!simulate) {
+            heldItem = ItemStack.EMPTY;
+            processingTicks = -1;
+            notifyUpdate();
         }
         return extracted;
     }
 
+    public boolean finishProcessing(boolean simulate) {
+        if (level == null || heldItem.isEmpty()) {
+            return false;
+        }
+        enchanter.update(heldItem);
+        if (!enchanter.canProcess(heldItem)) {
+            processingTicks = -1;
+            return false;
+        }
+        int cost = enchanter.getExperienceCost();
+        if (cost <= 0 || getTank().getAmount() < cost) {
+            return false;
+        }
+        ItemStack result = enchanter.getResult(heldItem, getRandom());
+        if (result.isEmpty()) {
+            return false;
+        }
+        if (!simulate) {
+            extractExperience(cost);
+            heldItem = result;
+            processingTicks = -1;
+            notifyUpdate();
+        }
+        return true;
+    }
+
+    public long insertExperience(long experiencePoints) {
+        if (experiencePoints <= 0) {
+            return 0;
+        }
+        try (Transaction transaction = Transaction.openOuter()) {
+            long inserted = fluidTankBehaviour.getStorage().insert(
+                    FluidVariant.of(CEIFluids.EXPERIENCE),
+                    ExperienceHatchBehaviour.getLiquidFromExperience(experiencePoints),
+                    transaction);
+            transaction.commit();
+            if (inserted > 0) {
+                updateBlockState();
+            }
+            return inserted;
+        }
+    }
+
+    public long extractExperience(long amount) {
+        if (amount <= 0) {
+            return 0;
+        }
+        try (Transaction transaction = Transaction.openOuter()) {
+            long extracted = fluidTankBehaviour.getStorage().extract(FluidVariant.of(CEIFluids.EXPERIENCE), amount, transaction);
+            transaction.commit();
+            if (extracted > 0) {
+                updateBlockState();
+            }
+            return extracted;
+        }
+    }
+
     @Override
-    public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
-        boolean added = super.addToGoggleTooltip(tooltip, isPlayerSneaking);
-        added |= enchanter.addToGoggleTooltip(tooltip, isPlayerSneaking);
-        return added;
+    public InteractionResult tryApplyFuel(ItemStack stack, boolean forceOverflow, boolean doNotConsume, boolean simulate) {
+        if (!stack.is(Items.EXPERIENCE_BOTTLE) || getTank().getSpace() < EXPERIENCE_BOTTLE_AMOUNT) {
+            return InteractionResult.PASS;
+        }
+        if (!simulate) {
+            insertExperience(EXPERIENCE_BOTTLE_AMOUNT);
+            if (!doNotConsume) {
+                stack.shrink(1);
+            }
+        }
+        return InteractionResult.SUCCESS.heldItemTransformedTo(doNotConsume ? ItemStack.EMPTY : new ItemStack(Items.GLASS_BOTTLE));
+    }
+
+    @Override
+    public HeatLevel getHeatLevel() {
+        if (isCreative()) {
+            return HeatLevel.SEETHING;
+        }
+        return fluidTankBehaviour != null && getTank().getAmount() > 0 ? HeatLevel.FADING : HeatLevel.SMOULDERING;
+    }
+
+    @Override
+    public void destroy() {
+        super.destroy();
+        if (level != null && !heldItem.isEmpty()) {
+            Containers.dropItemStack(level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), heldItem);
+        }
+    }
+
+    @Override
+    protected void write(ValueOutput view, boolean clientPacket) {
+        super.write(view, clientPacket);
+        view.store("HeldItem", ItemStack.OPTIONAL_CODEC, heldItem);
+        view.putInt("ProcessingTicks", processingTicks);
+        view.putLong("RandomSeed", randomSeed);
+    }
+
+    @Override
+    protected void read(ValueInput view, boolean clientPacket) {
+        super.read(view, clientPacket);
+        heldItem = view.read("HeldItem", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
+        processingTicks = view.getIntOr("ProcessingTicks", -1);
+        randomSeed = view.getLongOr("RandomSeed", 0xC317_2026L);
     }
 
     @Override
     public void clearContent() {
         heldItem = ItemStack.EMPTY;
-    }
-
-    private static class EnchanterTransform extends ValueBoxTransform.Sided {
-        @Override
-        protected Vec3 getSouthLocation() {
-            return VecHelper.voxelSpace(8, 8, 13.5);
-        }
-
-        @Override
-        public void rotate(LevelAccessor level, BlockPos pos, BlockState state, PoseStack poseStack) {
-            float yRot = AngleHelper.horizontalAngle(getSide()) + 180;
-            TransformStack.of(poseStack).rotateYDegrees(yRot);
-        }
-
-        @Override
-        protected boolean isSideActive(BlockState state, Direction direction) {
-            return direction.getAxis().isHorizontal();
-        }
-    }
-
-    private static class TemplateItemTransform extends ValueBoxTransform.Sided {
-        @Override
-        protected Vec3 getSouthLocation() {
-            return VecHelper.voxelSpace(8, 12, 14.5);
-        }
-
-        @Override
-        public void rotate(LevelAccessor level, BlockPos pos, BlockState state, PoseStack poseStack) {
-            float yRot = AngleHelper.horizontalAngle(getSide()) + 180;
-            TransformStack.of(poseStack).rotateYDegrees(yRot);
-        }
-
-        @Override
-        public boolean testHit(LevelAccessor level, BlockPos pos, BlockState state, Vec3 localHit) {
-            if (!isSideActive(state, getSide())) return false;
-            Vec3 location = VecHelper.voxelSpace(8, 8, 13.5);
-            location = VecHelper.rotateCentered(location, AngleHelper.horizontalAngle(getSide()), Direction.Axis.Y);
-            location = VecHelper.rotateCentered(location, AngleHelper.verticalAngle(getSide()), Direction.Axis.X);
-            return localHit.distanceTo(location) < scale * 1.2;
-        }
-
-        @Override
-        protected boolean isSideActive(BlockState state, Direction direction) {
-            return direction.getAxis().isHorizontal();
-        }
     }
 }

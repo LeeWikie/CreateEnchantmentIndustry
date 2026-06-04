@@ -1,281 +1,217 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.common.processing.forger;
 
-import com.simibubi.create.AllBlocks;
-import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
-import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
-import com.simibubi.create.foundation.item.ItemHelper;
-import com.simibubi.create.foundation.utility.CreateLang;
-import dev.engine_room.flywheel.lib.model.baked.PartialModel;
 import java.util.List;
-import java.util.function.Consumer;
-import net.createmod.catnip.lang.LangBuilder;
-import net.minecraft.ChatFormatting;
+
+import com.zurrtum.create.api.behaviour.BlockEntityBehaviour;
+import com.zurrtum.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
+
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
+import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup.Provider;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Clearable;
-import net.minecraft.world.item.Item.TooltipContext;
+import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import org.jetbrains.annotations.Nullable;
-import plus.dragons.createdragonsplus.common.advancements.AdvancementBehaviour;
-import plus.dragons.createdragonsplus.common.fluids.tank.ConfigurableFluidTank;
-import plus.dragons.createdragonsplus.util.FieldsNullabilityUnknownByDefault;
-import plus.dragons.createenchantmentindustry.client.model.CEIPartialModels;
-import plus.dragons.createenchantmentindustry.common.fluids.experience.BlazeExperienceBlockEntity;
-import plus.dragons.createenchantmentindustry.common.registry.CEIAdvancements;
-import plus.dragons.createenchantmentindustry.common.registry.CEIFluids;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import plus.dragons.createenchantmentindustry.common.fluids.experience.ExperienceHatchBehaviour;
 import plus.dragons.createenchantmentindustry.config.CEIConfig;
-import plus.dragons.createenchantmentindustry.util.CEILang;
+import plus.dragons.createenchantmentindustry.foundation.blaze.CEIBlazeBlockEntity;
+import plus.dragons.createenchantmentindustry.foundation.fluid.CEIConfigurableFluidTank;
+import plus.dragons.createenchantmentindustry.foundation.fluid.CEIFluidTankBehaviour;
+import plus.dragons.createenchantmentindustry.registry.CEIBlockEntityTypes;
+import plus.dragons.createenchantmentindustry.registry.CEIFluids;
 
-@FieldsNullabilityUnknownByDefault
-public class BlazeForgerBlockEntity extends BlazeExperienceBlockEntity implements Clearable {
+public class BlazeForgerBlockEntity extends CEIBlazeBlockEntity implements Clearable {
+    public static final long TANK_CAPACITY = CEIConfig.fluids().blazeForgerFluidCapacity();
     public static final int FORGING_TIME = 200;
-    protected boolean special;
-    protected boolean cursed;
-    protected int processingTime = -1;
-    protected final BlazeForgerInventory inventory;
-    protected AdvancementBehaviour advancement;
+    public static final int EXPERIENCE_BOTTLE_AMOUNT = 7;
 
-    public BlazeForgerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
-        this.inventory = new BlazeForgerInventory(this);
-    }
+    private CEIFluidTankBehaviour fluidTankBehaviour;
+    private final BlazeForgerInventory inventory = new BlazeForgerInventory();
+    private int processingTicks = -1;
 
-    public @Nullable IFluidHandler getFluidHandler(@Nullable Direction side) {
-        if ((side == Direction.DOWN || side == null) && !isRemoved())
-            return tanks.getCapability();
-        return null;
+    public BlazeForgerBlockEntity(BlockPos pos, BlockState state) {
+        super(CEIBlockEntityTypes.BLAZE_FORGER, pos, state);
     }
 
     @Override
-    public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
+    public void addBehaviours(List<BlockEntityBehaviour<?>> behaviours) {
         super.addBehaviours(behaviours);
-        this.advancement = new AdvancementBehaviour(this);
-        behaviours.add(this.advancement);
-    }
-
-    @Override
-    protected ConfigurableFluidTank createNormalTank(Consumer<FluidStack> fluidUpdateCallback) {
-        return new ConfigurableFluidTank(CEIConfig.fluids().blazeForgerFluidCapacity.get(), fluidUpdateCallback)
-                .allowInsertion(fluidStack -> fluidStack.is(CEIFluids.EXPERIENCE));
-    }
-
-    @Override
-    protected ConfigurableFluidTank createSpecialTank(Consumer<FluidStack> fluidUpdateCallback) {
-        return new ConfigurableFluidTank(CEIConfig.fluids().blazeForgerFluidCapacity.get(), fluidUpdateCallback)
-                .forbidInsertion();
-    }
-
-    @Override
-    public boolean isActive() {
-        return processingTime > 0;
-    }
-
-    @Override
-    @OnlyIn(Dist.CLIENT)
-    protected @Nullable PartialModel getHatModel(HeatLevel heatLevel) {
-        return heatLevel.isAtLeast(HeatLevel.FADING)
-                ? CEIPartialModels.BLAZE_FORGER_HAT
-                : CEIPartialModels.BLAZE_FORGER_HAT_SMALL;
-    }
-
-    @Override
-    public void write(CompoundTag compound, Provider registries, boolean clientPacket) {
-        super.write(compound, registries, clientPacket);
-        compound.putInt("ProcessingTime", processingTime);
-        compound.put("Inventory", inventory.serializeNBT(registries));
-    }
-
-    @Override
-    protected void read(CompoundTag compound, Provider registries, boolean clientPacket) {
-        super.read(compound, registries, clientPacket);
-        processingTime = compound.getInt("ProcessingTime");
-        inventory.deserializeNBT(registries, compound.getCompound("Inventory"));
-    }
-
-    @Override
-    public void initialize() {
-        super.initialize();
-    }
-
-    @Override
-    public void destroy() {
-        super.destroy();
-        if (level != null) {
-            ItemHelper.dropContents(level, worldPosition, inventory);
-        }
+        behaviours.add(fluidTankBehaviour = CEIFluidTankBehaviour.singleLiquidExperience(this, TANK_CAPACITY));
     }
 
     @Override
     public void tick() {
         super.tick();
-        boolean update = false;
-        boolean special = getHeatLevelFromBlock() == HeatLevel.SEETHING;
-        if (this.special != special) {
-            this.special = special;
-            update = true;
-        }
-        var strikePos = getStrikePos();
-        boolean cursed = special && !worldPosition.equals(strikePos);
-        if (this.cursed != cursed) {
-            this.cursed = cursed;
-            update = true;
-        }
-        if (level.isClientSide() && isVirtual()) {
-            if (update) {
-                inventory.updateResult();
-                notifyUpdate();
-            }
-            var cost = inventory.getExperienceCost();
-            if (cost > 0 && consumeExperience(cost, special, true)) {
-                if (processingTime < 0) {
-                    processingTime = FORGING_TIME / 4;
-                    return;
-                }
-                if (processingTime > 0) {
-                    processingTime--;
-                    return;
-                }
-                consumeExperience(cost, special, false);
-                processingTime = -1;
-                inventory.applyResult();
-            } else if (processingTime != -1) processingTime = -1;
+        if (level == null || level.isClientSide()) {
             return;
         }
-        if (!(level instanceof ServerLevel serverLevel))
+        inventory.setSpecial(getHeatLevelFromBlock() == HeatLevel.SEETHING);
+        int cost = inventory.getExperienceCost();
+        if (cost <= 0 || inventory.hasRemainingOutput() || getTank().getAmount() < cost) {
+            if (processingTicks != -1) {
+                processingTicks = -1;
+                notifyUpdate();
+            }
             return;
-        if (update) {
-            inventory.updateResult();
-            notifyUpdate();
         }
-        var cost = inventory.getExperienceCost();
-        if (cost > 0 && consumeExperience(cost, special, true)) {
-            if (processingTime < 0) {
-                processingTime = FORGING_TIME;
-                notifyUpdate();
-                return;
-            }
-            if (processingTime > 0) {
-                processingTime--;
-                notifyUpdate();
-                return;
-            }
-            if (special && !cursed && strikeLightning(serverLevel, strikePos)) {
-                advancement.trigger(CEIAdvancements.OSHA_VIOLATION.builtinTrigger());
-                serverLevel.destroyBlock(worldPosition, false);
-                serverLevel.setBlockAndUpdate(worldPosition, AllBlocks.LIT_BLAZE_BURNER.getDefaultState());
-                this.setRemoved();
-                return;
-            }
-            consumeExperience(cost, special, false);
-            processingTime = -1;
-            inventory.applyResult();
+        if (processingTicks < 0) {
+            processingTicks = FORGING_TIME;
             notifyUpdate();
-            level.playSound(null, worldPosition, SoundEvents.ANVIL_USE, SoundSource.BLOCKS, 1.0F, level.random.nextFloat() * 0.1F + 0.9F);
-        } else if (processingTime != -1) {
-            processingTime = -1;
-            notifyUpdate();
+            return;
         }
+        if (processingTicks > 0) {
+            processingTicks--;
+            notifyUpdate();
+            return;
+        }
+        finishProcessing(false);
+    }
+
+    public BlazeForgerInventory getInventory() {
+        return inventory;
+    }
+
+    public CEIFluidTankBehaviour getFluidTankBehaviour() {
+        return fluidTankBehaviour;
+    }
+
+    public Storage<FluidVariant> getFluidStorage(Direction direction) {
+        return fluidTankBehaviour.getStorage();
+    }
+
+    public CEIConfigurableFluidTank getTank() {
+        return fluidTankBehaviour.getPrimaryHandler();
+    }
+
+    public int getProcessingTicks() {
+        return processingTicks;
     }
 
     public ItemStack insertItem(ItemStack stack, boolean simulate) {
-        var original = stack;
-        if (inventory.hasRemainingOutput()) return stack;
-        if (!stack.isEmpty())
-            stack = inventory.insertItem(0, stack, simulate);
-        if (!stack.isEmpty())
-            stack = inventory.insertItem(1, stack, simulate);
-        if(!simulate && (original.getCount()!=stack.getCount() || !ItemStack.isSameItemSameComponents(original, stack))){
-            inventory.updateResult();
+        ItemStack remainder = inventory.insertItem(stack, simulate);
+        if (!simulate && (!ItemStack.isSameItemSameComponents(stack, remainder) || stack.getCount() != remainder.getCount())) {
+            processingTicks = -1;
             notifyUpdate();
         }
-        return stack;
+        return remainder;
     }
 
     public ItemStack extractItem(boolean simulate) {
-        for (int i = inventory.getSlots() - 1; i >= 0; i--) {
-            ItemStack extracted = inventory.extractItem(i, 1, simulate);
-            if (!extracted.isEmpty()){
-                if(!simulate && i<2){
-                    inventory.updateResult();
-                    notifyUpdate();
-                }
-                return extracted;
-            }
+        ItemStack extracted = inventory.extractFirstAvailable(simulate);
+        if (!simulate && !extracted.isEmpty()) {
+            processingTicks = -1;
+            notifyUpdate();
         }
-        return ItemStack.EMPTY;
+        return extracted;
+    }
+
+    public boolean finishProcessing(boolean simulate) {
+        int cost = inventory.getExperienceCost();
+        if (level == null || cost <= 0 || inventory.hasRemainingOutput() || getTank().getAmount() < cost) {
+            return false;
+        }
+        if (!simulate) {
+            extractExperience(cost);
+            inventory.applyResult();
+            processingTicks = -1;
+            notifyUpdate();
+        }
+        return true;
+    }
+
+    public long insertExperience(long experiencePoints) {
+        if (experiencePoints <= 0) {
+            return 0;
+        }
+        try (Transaction transaction = Transaction.openOuter()) {
+            long inserted = fluidTankBehaviour.getStorage().insert(
+                    FluidVariant.of(CEIFluids.EXPERIENCE),
+                    ExperienceHatchBehaviour.getLiquidFromExperience(experiencePoints),
+                    transaction);
+            transaction.commit();
+            if (inserted > 0) {
+                updateBlockState();
+            }
+            return inserted;
+        }
+    }
+
+    public long extractExperience(long amount) {
+        if (amount <= 0) {
+            return 0;
+        }
+        try (Transaction transaction = Transaction.openOuter()) {
+            long extracted = fluidTankBehaviour.getStorage().extract(FluidVariant.of(CEIFluids.EXPERIENCE), amount, transaction);
+            transaction.commit();
+            if (extracted > 0) {
+                updateBlockState();
+            }
+            return extracted;
+        }
     }
 
     @Override
-    public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
-        boolean added = super.addToGoggleTooltip(tooltip, isPlayerSneaking);
-        var style = special
-                ? (cursed ? ChatFormatting.RED : ChatFormatting.BLUE)
-                : ChatFormatting.GOLD;
-        int cost = inventory.getExperienceCost();
-        if (cost > 0) {
-            added = true;
-            LangBuilder mb = CreateLang.translate("generic.unit.millibuckets");
-            CEILang.translate("gui.goggles.forging.cost", CEILang.number(cost).add(mb).style(style))
-                    .forGoggles(tooltip);
-            for (int i = 0; i < 2; i++) {
-                var result = inventory.getResult(i);
-                if (result.isEmpty())
-                    continue;
-                CEILang.translate("gui.goggles.forging.result").forGoggles(tooltip);
-                CEILang.item(result).style(ChatFormatting.GRAY).forGoggles(tooltip, 1);
-                var enchantments = EnchantmentHelper.getEnchantmentsForCrafting(result);
-                if (!enchantments.isEmpty())
-                    enchantments.addToTooltip(
-                            TooltipContext.of(level),
-                            component -> CEILang.builder().add(component).forGoggles(tooltip, 2),
-                            TooltipFlag.NORMAL);
-            }
-        } else {
-            if (inventory.forgingCompleted())
-                CEILang.translate("gui.goggles.forging.completed").style(ChatFormatting.GREEN).forGoggles(tooltip);
-            else if (!inventory.notEnoughItemToForge()) {
-                if (inventory.incompatibleEnchantingTemplateType())
-                    CEILang.translate("gui.goggles.forging.invalid_template_type." + (special ? "normal" : "special")).style(ChatFormatting.RED).forGoggles(tooltip);
-                else CEILang.translate("gui.goggles.forging.invalid_items").style(ChatFormatting.RED).forGoggles(tooltip);
+    public InteractionResult tryApplyFuel(ItemStack stack, boolean forceOverflow, boolean doNotConsume, boolean simulate) {
+        if (!stack.is(Items.EXPERIENCE_BOTTLE) || getTank().getSpace() < EXPERIENCE_BOTTLE_AMOUNT) {
+            return InteractionResult.PASS;
+        }
+        if (!simulate) {
+            insertExperience(EXPERIENCE_BOTTLE_AMOUNT);
+            if (!doNotConsume) {
+                stack.shrink(1);
             }
         }
-        return added;
+        return InteractionResult.SUCCESS.heldItemTransformedTo(doNotConsume ? ItemStack.EMPTY : new ItemStack(Items.GLASS_BOTTLE));
+    }
+
+    @Override
+    public HeatLevel getHeatLevel() {
+        if (isCreative()) {
+            return HeatLevel.SEETHING;
+        }
+        if (fluidTankBehaviour != null && getTank().getAmount() > 0) {
+            return HeatLevel.FADING;
+        }
+        return HeatLevel.SMOULDERING;
+    }
+
+    @Override
+    protected void write(ValueOutput view, boolean clientPacket) {
+        super.write(view, clientPacket);
+        view.putInt("ProcessingTicks", processingTicks);
+        inventory.write(view.child("Inventory"));
+    }
+
+    @Override
+    protected void read(ValueInput view, boolean clientPacket) {
+        super.read(view, clientPacket);
+        processingTicks = view.getIntOr("ProcessingTicks", -1);
+        inventory.read(view.childOrEmpty("Inventory"));
     }
 
     @Override
     public void clearContent() {
         inventory.clear();
+        processingTicks = -1;
+    }
+
+    @Override
+    public void destroy() {
+        super.destroy();
+        if (level == null) {
+            return;
+        }
+        for (int slot = 0; slot < 4; slot++) {
+            ItemStack extracted = inventory.extractItem(slot, 64, false);
+            if (!extracted.isEmpty()) {
+                Containers.dropItemStack(level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), extracted);
+            }
+        }
     }
 }

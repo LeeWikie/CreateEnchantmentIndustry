@@ -1,52 +1,67 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.config;
 
-import net.createmod.catnip.config.ConfigBase;
+import com.google.gson.JsonObject;
 
-public class CEIEnchantmentsConfig extends ConfigBase {
-    public final ConfigInt blazeEnchanterMaxEnchantLevel = i(30, 0,
-            "blazeEnchanterMaxEnchantLevel",
-            Comments.blazeEnchanterMaxEnchantLevel);
-    public final ConfigInt blazeEnchanterMaxSuperEnchantLevel = i(60, 0,
-            "blazeEnchanterMaxSuperEnchantLevel",
-            Comments.blazeEnchanterMaxSuperEnchantLevel);
-    public final ConfigInt enchantmentMaxLevelExtension = i(1, 0, 255,
-            "enchantmentMaxLevelExtension",
-            Comments.enchantmentMaxLevelExtension);
-    public final ConfigBool ignoreEnchantmentCompatibility = b(true,
-            "ignoreEnchantmentCompatibility",
-            Comments.ignoreEnchantmentCompatibility);
-    public final ConfigBool splitEnchantmentRespectLevelExtension = b(false,
-            "splitEnchantmentRespectLevelExtension",
-            Comments.splitEnchantmentRespectLevelExtension);
+public final class CEIEnchantmentsConfig {
+    private final int blazeEnchanterMaxEnchantLevel;
+    private final int blazeEnchanterMaxSuperEnchantLevel;
+    private final int enchantmentMaxLevelExtension;
+    private final boolean ignoreEnchantmentCompatibility;
+    private final boolean splitEnchantmentRespectLevelExtension;
 
-    @Override
-    public String getName() {
-        return "enchantments";
+    private CEIEnchantmentsConfig(
+            int blazeEnchanterMaxEnchantLevel,
+            int blazeEnchanterMaxSuperEnchantLevel,
+            int enchantmentMaxLevelExtension,
+            boolean ignoreEnchantmentCompatibility,
+            boolean splitEnchantmentRespectLevelExtension) {
+        this.blazeEnchanterMaxEnchantLevel = blazeEnchanterMaxEnchantLevel;
+        this.blazeEnchanterMaxSuperEnchantLevel = blazeEnchanterMaxSuperEnchantLevel;
+        this.enchantmentMaxLevelExtension = enchantmentMaxLevelExtension;
+        this.ignoreEnchantmentCompatibility = ignoreEnchantmentCompatibility;
+        this.splitEnchantmentRespectLevelExtension = splitEnchantmentRespectLevelExtension;
     }
 
-    static class Comments {
-        static final String blazeEnchanterMaxEnchantLevel = "The max experience level a Blaze Enchanter can use in Regular Enchanting";
-        static final String blazeEnchanterMaxSuperEnchantLevel = "The max experience level a Blaze Enchanter can use in Super Enchanting";
-        static final String enchantmentMaxLevelExtension = "Max enchantment level in Super Enchanting will be extended by this value";
-        static final String ignoreEnchantmentCompatibility = "If Super Enchanting and Super Forging ignores enchantment compatibility";
-        static final String splitEnchantmentRespectLevelExtension = "If Enchantment splitting respects over-capped level";
+    static CEIEnchantmentsConfig defaults() {
+        return new CEIEnchantmentsConfig(30, 60, 1, true, false);
+    }
+
+    static CEIEnchantmentsConfig load(CEIConfig.ConfigReader reader) {
+        return new CEIEnchantmentsConfig(
+                reader.readInt("blazeEnchanterMaxEnchantLevel", 30, 0, Integer.MAX_VALUE),
+                reader.readInt("blazeEnchanterMaxSuperEnchantLevel", 60, 0, Integer.MAX_VALUE),
+                reader.readInt("enchantmentMaxLevelExtension", 1, 0, 255),
+                reader.readBoolean("ignoreEnchantmentCompatibility", true),
+                reader.readBoolean("splitEnchantmentRespectLevelExtension", false));
+    }
+
+    JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("blazeEnchanterMaxEnchantLevel", blazeEnchanterMaxEnchantLevel);
+        json.addProperty("blazeEnchanterMaxSuperEnchantLevel", blazeEnchanterMaxSuperEnchantLevel);
+        json.addProperty("enchantmentMaxLevelExtension", enchantmentMaxLevelExtension);
+        json.addProperty("ignoreEnchantmentCompatibility", ignoreEnchantmentCompatibility);
+        json.addProperty("splitEnchantmentRespectLevelExtension", splitEnchantmentRespectLevelExtension);
+        return json;
+    }
+
+    public int blazeEnchanterMaxEnchantLevel() {
+        return blazeEnchanterMaxEnchantLevel;
+    }
+
+    public int blazeEnchanterMaxSuperEnchantLevel() {
+        return blazeEnchanterMaxSuperEnchantLevel;
+    }
+
+    public int enchantmentMaxLevelExtension() {
+        return enchantmentMaxLevelExtension;
+    }
+
+    public boolean ignoreEnchantmentCompatibility() {
+        return ignoreEnchantmentCompatibility;
+    }
+
+    public boolean splitEnchantmentRespectLevelExtension() {
+        return splitEnchantmentRespectLevelExtension;
     }
 }

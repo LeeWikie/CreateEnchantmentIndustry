@@ -1,54 +1,121 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.config;
 
-import net.createmod.catnip.config.ConfigBase;
+import com.google.gson.JsonObject;
 
-public class CEIKineticsConfig extends ConfigBase {
-    public final ConfigBool deployerKillDropXp = b(true, "deployerKillDropXp", Comments.deployerKillDropXp);
-    public final ConfigFloat deployerKillXpScale = f(1, 0, 1, "deployerKillXpScale", Comments.deployerKillXpScale);
-    public final ConfigBool deployerMineDropXp = b(true, "deployerMineDropXp", Comments.deployerMineDropXp);
-    public final ConfigFloat deployerMineXpScale = f(1, 0, 1, "deployerMineXpScale", Comments.deployerMineXpScale);
-    public final ConfigBool deployerCollectXp = b(true, "deployerCollectXp", Comments.deployerCollectXp);
-    public final ConfigBool deployerMendItem = b(true, "deployerMendItem", Comments.deployerMendItem);
-    public final ConfigBool deployerSweepAttack = b(true, "deployerSweepAttack", Comments.deployerSweepAttack);
-    public final ConfigBool crushingWheelKillDropXp = b(true, "crushingWheelKillDropXp", Comments.crushingWheelKillDropXp);
-    public final ConfigFloat crushingWheelKillDropXpChance = f(0.3f, 0, 1, "crushingWheelKillDropXpChance", Comments.crushingWheelKillDropXpChance);
-    public final ConfigFloat crushingWheelKillDropXpScale = f(0.34f, 0, 1, "crushingWheelKillDropXpScale", Comments.crushingWheelKillDropXpScale);
-    public final CEIStressConfig stressValues = nested(0, CEIStressConfig::new, Comments.stress);
+public final class CEIKineticsConfig {
+    private final boolean deployerKillDropXp;
+    private final float deployerKillXpScale;
+    private final boolean deployerMineDropXp;
+    private final float deployerMineXpScale;
+    private final boolean deployerCollectXp;
+    private final boolean deployerMendItem;
+    private final boolean deployerSweepAttack;
+    private final boolean crushingWheelKillDropXp;
+    private final float crushingWheelKillDropXpChance;
+    private final float crushingWheelKillDropXpScale;
+    private final CEIStressConfig stress;
 
-    @Override
-    public String getName() {
-        return "kinetics";
+    private CEIKineticsConfig(
+            boolean deployerKillDropXp,
+            float deployerKillXpScale,
+            boolean deployerMineDropXp,
+            float deployerMineXpScale,
+            boolean deployerCollectXp,
+            boolean deployerMendItem,
+            boolean deployerSweepAttack,
+            boolean crushingWheelKillDropXp,
+            float crushingWheelKillDropXpChance,
+            float crushingWheelKillDropXpScale,
+            CEIStressConfig stress) {
+        this.deployerKillDropXp = deployerKillDropXp;
+        this.deployerKillXpScale = deployerKillXpScale;
+        this.deployerMineDropXp = deployerMineDropXp;
+        this.deployerMineXpScale = deployerMineXpScale;
+        this.deployerCollectXp = deployerCollectXp;
+        this.deployerMendItem = deployerMendItem;
+        this.deployerSweepAttack = deployerSweepAttack;
+        this.crushingWheelKillDropXp = crushingWheelKillDropXp;
+        this.crushingWheelKillDropXpChance = crushingWheelKillDropXpChance;
+        this.crushingWheelKillDropXpScale = crushingWheelKillDropXpScale;
+        this.stress = stress;
     }
 
-    static class Comments {
-        static final String stress = "Fine tune the kinetic stats of individual components";
-        static final String deployerKillDropXp = "Whether Deployer-killed entities should drop experience.";
-        static final String deployerKillXpScale = "Scale for experience dropped from Deployer-killed entities.";
-        static final String deployerMineDropXp = "Whether Deployer-mined blocks should drop experience.";
-        static final String deployerMineXpScale = "Scale for experience dropped from Deployer-mined blocks.";
-        static final String deployerCollectXp = "Whether Deployers collect dropped experience as Nuggets of Experience.";
-        static final String deployerMendItem = "Whether the Mending enchantment applies to Deployer-held items (Needs deployerCollectXp = true).";
-        static final String deployerSweepAttack = "Whether Deployers can perform sweep attacks.";
-        static final String crushingWheelKillDropXp = "Whether Crushing Wheel-killed entities should drop experience.";
-        static final String crushingWheelKillDropXpChance = "Probability of Crushing Wheel-killed entities dropping experience.";
-        static final String crushingWheelKillDropXpScale = "Scale for experience dropped from Crushing Wheel-killed entities.";
+    static CEIKineticsConfig defaults() {
+        return new CEIKineticsConfig(true, 1.0f, true, 1.0f, true, true, true, true, 0.3f, 0.34f, CEIStressConfig.defaults());
+    }
+
+    static CEIKineticsConfig load(CEIConfig.ConfigReader reader) {
+        return new CEIKineticsConfig(
+                reader.readBoolean("deployerKillDropXp", true),
+                reader.readFloat("deployerKillXpScale", 1.0f, 0.0f, 1.0f),
+                reader.readBoolean("deployerMineDropXp", true),
+                reader.readFloat("deployerMineXpScale", 1.0f, 0.0f, 1.0f),
+                reader.readBoolean("deployerCollectXp", true),
+                reader.readBoolean("deployerMendItem", true),
+                reader.readBoolean("deployerSweepAttack", true),
+                reader.readBoolean("crushingWheelKillDropXp", true),
+                reader.readFloat("crushingWheelKillDropXpChance", 0.3f, 0.0f, 1.0f),
+                reader.readFloat("crushingWheelKillDropXpScale", 0.34f, 0.0f, 1.0f),
+                CEIStressConfig.load(reader.section("stress")));
+    }
+
+    JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("deployerKillDropXp", deployerKillDropXp);
+        json.addProperty("deployerKillXpScale", deployerKillXpScale);
+        json.addProperty("deployerMineDropXp", deployerMineDropXp);
+        json.addProperty("deployerMineXpScale", deployerMineXpScale);
+        json.addProperty("deployerCollectXp", deployerCollectXp);
+        json.addProperty("deployerMendItem", deployerMendItem);
+        json.addProperty("deployerSweepAttack", deployerSweepAttack);
+        json.addProperty("crushingWheelKillDropXp", crushingWheelKillDropXp);
+        json.addProperty("crushingWheelKillDropXpChance", crushingWheelKillDropXpChance);
+        json.addProperty("crushingWheelKillDropXpScale", crushingWheelKillDropXpScale);
+        json.add("stress", stress.toJson());
+        return json;
+    }
+
+    public boolean deployerKillDropXp() {
+        return deployerKillDropXp;
+    }
+
+    public float deployerKillXpScale() {
+        return deployerKillXpScale;
+    }
+
+    public boolean deployerMineDropXp() {
+        return deployerMineDropXp;
+    }
+
+    public float deployerMineXpScale() {
+        return deployerMineXpScale;
+    }
+
+    public boolean deployerCollectXp() {
+        return deployerCollectXp;
+    }
+
+    public boolean deployerMendItem() {
+        return deployerMendItem;
+    }
+
+    public boolean deployerSweepAttack() {
+        return deployerSweepAttack;
+    }
+
+    public boolean crushingWheelKillDropXp() {
+        return crushingWheelKillDropXp;
+    }
+
+    public float crushingWheelKillDropXpChance() {
+        return crushingWheelKillDropXpChance;
+    }
+
+    public float crushingWheelKillDropXpScale() {
+        return crushingWheelKillDropXpScale;
+    }
+
+    public CEIStressConfig stress() {
+        return stress;
     }
 }

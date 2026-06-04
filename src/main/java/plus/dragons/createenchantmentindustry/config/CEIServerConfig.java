@@ -1,46 +1,62 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.config;
 
-import net.createmod.catnip.config.ConfigBase;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import com.google.gson.JsonObject;
 
-public class CEIServerConfig extends ConfigBase {
-    public final CEIKineticsConfig kinetics = nested(0, CEIKineticsConfig::new, Comments.kinetics);
-    public final CEIFluidsConfig fluids = nested(0, CEIFluidsConfig::new, Comments.fluids);
-    public final CEIEnchantmentsConfig enchantments = nested(0, CEIEnchantmentsConfig::new, Comments.enchantments);
-    public final CEIProcessingConfig processing = nested(0, CEIProcessingConfig::new, Comments.processing);
+public final class CEIServerConfig {
+    private final CEIKineticsConfig kinetics;
+    private final CEIFluidsConfig fluids;
+    private final CEIEnchantmentsConfig enchantments;
+    private final CEIProcessingConfig processing;
 
-    @Override
-    public void registerAll(ModConfigSpec.Builder builder) {
-        super.registerAll(builder);
+    private CEIServerConfig(
+            CEIKineticsConfig kinetics,
+            CEIFluidsConfig fluids,
+            CEIEnchantmentsConfig enchantments,
+            CEIProcessingConfig processing) {
+        this.kinetics = kinetics;
+        this.fluids = fluids;
+        this.enchantments = enchantments;
+        this.processing = processing;
     }
 
-    @Override
-    public String getName() {
-        return "server";
+    static CEIServerConfig defaults() {
+        return new CEIServerConfig(
+                CEIKineticsConfig.defaults(),
+                CEIFluidsConfig.defaults(),
+                CEIEnchantmentsConfig.defaults(),
+                CEIProcessingConfig.defaults());
     }
 
-    static class Comments {
-        static final String kinetics = "Parameters and abilities of kinetic mechanisms";
-        static final String fluids = "Parameters and abilities of fluids and fluid operating components";
-        static final String enchantments = "Parameters and abilities of enchantment operating components";
-        static final String processing = "Parameters and abilities of processing mechanisms and appliances";
+    static CEIServerConfig load(CEIConfig.ConfigReader reader) {
+        return new CEIServerConfig(
+                CEIKineticsConfig.load(reader.section("kinetics")),
+                CEIFluidsConfig.load(reader.section("fluids")),
+                CEIEnchantmentsConfig.load(reader.section("enchantments")),
+                CEIProcessingConfig.load(reader.section("processing")));
+    }
+
+    JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        json.add("kinetics", kinetics.toJson());
+        json.add("fluids", fluids.toJson());
+        json.add("enchantments", enchantments.toJson());
+        json.add("processing", processing.toJson());
+        return json;
+    }
+
+    public CEIKineticsConfig kinetics() {
+        return kinetics;
+    }
+
+    public CEIFluidsConfig fluids() {
+        return fluids;
+    }
+
+    public CEIEnchantmentsConfig enchantments() {
+        return enchantments;
+    }
+
+    public CEIProcessingConfig processing() {
+        return processing;
     }
 }

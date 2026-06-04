@@ -1,135 +1,220 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.config;
 
-import net.createmod.catnip.config.ConfigBase;
-import net.createmod.catnip.config.ui.ConfigAnnotations.RequiresRestart;
+import com.google.gson.JsonObject;
 
-public class CEIFluidsConfig extends ConfigBase {
-    public final ConfigBool experienceVaporizeOnPlacement = b(true,
-            "experienceVaporizeOnPlacement",
-            Comments.experienceVaporizeOnPlacement);
-    public final ConfigInt printerFluidCapacity = i(4000, 1000,
-            "printerFluidCapacity",
-            Comments.printerFluidCapacity,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigBool enableWrittenBookPrinting = b(true,
-            "enableWrittenBookPrinting",
-            Comments.enableWrittenBookPrinting,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigBool enableEnchantedBookPrinting = b(true,
-            "enableEnchantedBookPrinting",
-            Comments.enableEnchantedBookPrinting,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigBool enableCreateCopiableItemPrinting = b(true,
-            "enableCreateCopiableItemPrinting",
-            Comments.enableCreateCopiableItemPrinting,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigBool enablePackagePatternPrinting = b(true,
-            "enablePackagePatternPrinting",
-            Comments.enablePackagePatternPrinting,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigBool enablePackageAddressPrinting = b(true,
-            "enablePackageAddressPrinting",
-            Comments.enablePackageAddressPrinting,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigBool enableCustomNamePrinting = b(true,
-            "enableCustomNamePrinting",
-            Comments.enableCustomNamePrinting,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigBool enableBannerPatternPrinting = b(true,
-            "enableBannerPatternPrinting",
-            Comments.enableBannerPatternPrinting,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigBool printingCustomNameAsItemName = b(false,
-            "printingCustomNameAsItemName",
-            Comments.printingCustomNameAsItemName);
-    public final ConfigInt printingGenerationChange = i(-3, -3, 1,
-            "printingGenerationChange",
-            Comments.printingGenerationChange);
-    public final ConfigFloat printingEnchantedBookCostMultiplier = f(1f, 0.01f, 100f,
-            "printingEnchantedBookCostMultiplier",
-            Comments.printingEnchantedBookCostMultiplier);
-    public final ConfigBool printingEnchantedBookDenylistStopCopying = b(true,
-            "printingEnchantedBookDenylistStopCopying",
-            Comments.printingEnchantedBookDenylistStopCopying);
-    public final ConfigInt blazeEnchanterFluidCapacity = i(4000, 1000,
-            "blazeEnchanterFluidCapacity",
-            Comments.blazeEnchanterFluidCapacity,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigInt blazeForgerFluidCapacity = i(4000, 1000,
-            "blazeForgerFluidCapacity",
-            Comments.blazeForgerFluidCapacity,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigInt experienceLanternFluidCapacity = i(1000, 100,
-            "experienceLanternFluidCapacity",
-            Comments.experienceLanternFluidCapacity,
-            RequiresRestart.SERVER.asComment());
-    public final ConfigInt experienceLanternDrainRate = i(50, 1,
-            "experienceLanternDrainRate",
-            Comments.experienceLanternDrainRate);
-    public final ConfigBool experienceLanternPullToggle = b(true,
-            "experienceLanternPullToggle",
-            Comments.experienceLanternPullToggle);
-    public final ConfigInt experienceLanternPullRadius = i(10, 0,
-            "experienceLanternPullRadius",
-            Comments.experienceLanternPullRadius);
-    public final ConfigFloat experienceLanternPullForceMultiplier = f(.075f, 0.0f, .5f,
-            "experienceLanternPullForceMultiplier",
-            Comments.experienceLanternPullForceMultiplier);
-    public final ConfigBool experienceLanternDrainMaidExperience = b(true,
-            "experienceLanternDrainMaidExperience",
-            Comments.experienceLanternDrainMaidExperience);
-    public final ConfigInt mechanicalGrindstoneFluidCapacity = i(1000, 5000,
-            "mechanicalGrindstoneFluidCapacity",
-            Comments.mechanicalGrindstoneFluidCapacity,
-            RequiresRestart.SERVER.asComment());
+public final class CEIFluidsConfig {
+    private final boolean experienceVaporizeOnPlacement;
+    private final int printerFluidCapacity;
+    private final boolean enableWrittenBookPrinting;
+    private final boolean enableEnchantedBookPrinting;
+    private final boolean enableCreateCopiableItemPrinting;
+    private final boolean enablePackagePatternPrinting;
+    private final boolean enablePackageAddressPrinting;
+    private final boolean enableCustomNamePrinting;
+    private final boolean enableBannerPatternPrinting;
+    private final boolean printingCustomNameAsItemName;
+    private final int printingGenerationChange;
+    private final float printingEnchantedBookCostMultiplier;
+    private final boolean printingEnchantedBookDenylistStopCopying;
+    private final int blazeEnchanterFluidCapacity;
+    private final int blazeForgerFluidCapacity;
+    private final int experienceLanternFluidCapacity;
+    private final int experienceLanternDrainRate;
+    private final boolean experienceLanternPullToggle;
+    private final int experienceLanternPullRadius;
+    private final float experienceLanternPullForceMultiplier;
+    private final boolean experienceLanternDrainMaidExperience;
+    private final int mechanicalGrindstoneFluidCapacity;
 
-    @Override
-    public String getName() {
-        return "fluids";
+    private CEIFluidsConfig(
+            boolean experienceVaporizeOnPlacement,
+            int printerFluidCapacity,
+            boolean enableWrittenBookPrinting,
+            boolean enableEnchantedBookPrinting,
+            boolean enableCreateCopiableItemPrinting,
+            boolean enablePackagePatternPrinting,
+            boolean enablePackageAddressPrinting,
+            boolean enableCustomNamePrinting,
+            boolean enableBannerPatternPrinting,
+            boolean printingCustomNameAsItemName,
+            int printingGenerationChange,
+            float printingEnchantedBookCostMultiplier,
+            boolean printingEnchantedBookDenylistStopCopying,
+            int blazeEnchanterFluidCapacity,
+            int blazeForgerFluidCapacity,
+            int experienceLanternFluidCapacity,
+            int experienceLanternDrainRate,
+            boolean experienceLanternPullToggle,
+            int experienceLanternPullRadius,
+            float experienceLanternPullForceMultiplier,
+            boolean experienceLanternDrainMaidExperience,
+            int mechanicalGrindstoneFluidCapacity) {
+        this.experienceVaporizeOnPlacement = experienceVaporizeOnPlacement;
+        this.printerFluidCapacity = printerFluidCapacity;
+        this.enableWrittenBookPrinting = enableWrittenBookPrinting;
+        this.enableEnchantedBookPrinting = enableEnchantedBookPrinting;
+        this.enableCreateCopiableItemPrinting = enableCreateCopiableItemPrinting;
+        this.enablePackagePatternPrinting = enablePackagePatternPrinting;
+        this.enablePackageAddressPrinting = enablePackageAddressPrinting;
+        this.enableCustomNamePrinting = enableCustomNamePrinting;
+        this.enableBannerPatternPrinting = enableBannerPatternPrinting;
+        this.printingCustomNameAsItemName = printingCustomNameAsItemName;
+        this.printingGenerationChange = printingGenerationChange;
+        this.printingEnchantedBookCostMultiplier = printingEnchantedBookCostMultiplier;
+        this.printingEnchantedBookDenylistStopCopying = printingEnchantedBookDenylistStopCopying;
+        this.blazeEnchanterFluidCapacity = blazeEnchanterFluidCapacity;
+        this.blazeForgerFluidCapacity = blazeForgerFluidCapacity;
+        this.experienceLanternFluidCapacity = experienceLanternFluidCapacity;
+        this.experienceLanternDrainRate = experienceLanternDrainRate;
+        this.experienceLanternPullToggle = experienceLanternPullToggle;
+        this.experienceLanternPullRadius = experienceLanternPullRadius;
+        this.experienceLanternPullForceMultiplier = experienceLanternPullForceMultiplier;
+        this.experienceLanternDrainMaidExperience = experienceLanternDrainMaidExperience;
+        this.mechanicalGrindstoneFluidCapacity = mechanicalGrindstoneFluidCapacity;
     }
 
-    static class Comments {
-        static final String experienceVaporizeOnPlacement = "Whether Liquid Experience will vaporize into Experience Orbs upon placement.";
-        static final String printerFluidCapacity = "The amount of liquid a Printer can hold (mB).";
-        static final String enableWrittenBookPrinting = "If the printing of Written Books function of Printers should be enabled.";
-        static final String enableEnchantedBookPrinting = "If the printing of Enchanted Books function of Printers should be enabled.";
-        static final String enableCreateCopiableItemPrinting = "If the printing of Create's copiable items function of Printers should be enabled.";
-        static final String enablePackagePatternPrinting = "If the changing package patterns function of Printers should be enabled.";
-        static final String enablePackageAddressPrinting = "If the assigning package addresses function of Printers should be enabled.";
-        static final String enableCustomNamePrinting = "If the assigning custom names function of Printers should be enabled.";
-        static final String enableBannerPatternPrinting = "If the printing banner patterns function of Printers should be enabled.";
-        static final String printingCustomNameAsItemName = "Whether printing custom names (displayed in italics) should instead print as as item names (displayed in non-italics).";
-        static final String printingGenerationChange = "The generation change when copying Written Books; " +
-                "a value of 1 will prevent copying copy of copy";
-        static final String printingEnchantedBookCostMultiplier = "The cost multiplier of printing Enchanted Books.";
-        static final String printingEnchantedBookDenylistStopCopying = "Whether the Printer denylist prevents Enchanted Books from being copied." +
-                "Setting this to false allows copying Enchanted Books without denied enchantments";
-        static final String blazeEnchanterFluidCapacity = "The amount of liquid a Blaze Enchanter can hold (mB).";
-        static final String blazeForgerFluidCapacity = "The amount of liquid a Blaze Forger can hold (mB).";
-        static final String experienceLanternFluidCapacity = "The amount of liquid an Experience Lantern can hold (mB).";
-        static final String experienceLanternDrainRate = "The amount of experience an Experience Lantern can drain from player per 0.5 ticks (mB).";
-        static final String experienceLanternPullToggle = "Whether the Experience Lantern will pull in experience orbs from nearby.";
-        static final String experienceLanternPullRadius = "The range at which experience orbs will be pulled into the lantern.";
-        static final String experienceLanternPullForceMultiplier = "Modifier for the amount of force with which to pull the experience orbs.";
-        static final String experienceLanternDrainMaidExperience = "Whether the Experience Lantern will drain experience from nearby Touhou Little Maid's maids (requires TLM mod).";
-        static final String mechanicalGrindstoneFluidCapacity = "The amount of liquid a Grindstone Drain can hold (mB).";
+    static CEIFluidsConfig defaults() {
+        return new CEIFluidsConfig(true, 4000, true, true, true, true, true, true, true, false, -3, 1.0f, true, 4000, 4000, 1000, 50, true, 10, 0.075f, true, 1000);
+    }
+
+    static CEIFluidsConfig load(CEIConfig.ConfigReader reader) {
+        return new CEIFluidsConfig(
+                reader.readBoolean("experienceVaporizeOnPlacement", true),
+                reader.readInt("printerFluidCapacity", 4000, 1000, Integer.MAX_VALUE),
+                reader.readBoolean("enableWrittenBookPrinting", true),
+                reader.readBoolean("enableEnchantedBookPrinting", true),
+                reader.readBoolean("enableCreateCopiableItemPrinting", true),
+                reader.readBoolean("enablePackagePatternPrinting", true),
+                reader.readBoolean("enablePackageAddressPrinting", true),
+                reader.readBoolean("enableCustomNamePrinting", true),
+                reader.readBoolean("enableBannerPatternPrinting", true),
+                reader.readBoolean("printingCustomNameAsItemName", false),
+                reader.readInt("printingGenerationChange", -3, -3, 1),
+                reader.readFloat("printingEnchantedBookCostMultiplier", 1.0f, 0.01f, 100.0f),
+                reader.readBoolean("printingEnchantedBookDenylistStopCopying", true),
+                reader.readInt("blazeEnchanterFluidCapacity", 4000, 1000, Integer.MAX_VALUE),
+                reader.readInt("blazeForgerFluidCapacity", 4000, 1000, Integer.MAX_VALUE),
+                reader.readInt("experienceLanternFluidCapacity", 1000, 100, Integer.MAX_VALUE),
+                reader.readInt("experienceLanternDrainRate", 50, 1, Integer.MAX_VALUE),
+                reader.readBoolean("experienceLanternPullToggle", true),
+                reader.readInt("experienceLanternPullRadius", 10, 0, Integer.MAX_VALUE),
+                reader.readFloat("experienceLanternPullForceMultiplier", 0.075f, 0.0f, 0.5f),
+                reader.readBoolean("experienceLanternDrainMaidExperience", true),
+                reader.readInt("mechanicalGrindstoneFluidCapacity", 1000, 1, Integer.MAX_VALUE));
+    }
+
+    JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("experienceVaporizeOnPlacement", experienceVaporizeOnPlacement);
+        json.addProperty("printerFluidCapacity", printerFluidCapacity);
+        json.addProperty("enableWrittenBookPrinting", enableWrittenBookPrinting);
+        json.addProperty("enableEnchantedBookPrinting", enableEnchantedBookPrinting);
+        json.addProperty("enableCreateCopiableItemPrinting", enableCreateCopiableItemPrinting);
+        json.addProperty("enablePackagePatternPrinting", enablePackagePatternPrinting);
+        json.addProperty("enablePackageAddressPrinting", enablePackageAddressPrinting);
+        json.addProperty("enableCustomNamePrinting", enableCustomNamePrinting);
+        json.addProperty("enableBannerPatternPrinting", enableBannerPatternPrinting);
+        json.addProperty("printingCustomNameAsItemName", printingCustomNameAsItemName);
+        json.addProperty("printingGenerationChange", printingGenerationChange);
+        json.addProperty("printingEnchantedBookCostMultiplier", printingEnchantedBookCostMultiplier);
+        json.addProperty("printingEnchantedBookDenylistStopCopying", printingEnchantedBookDenylistStopCopying);
+        json.addProperty("blazeEnchanterFluidCapacity", blazeEnchanterFluidCapacity);
+        json.addProperty("blazeForgerFluidCapacity", blazeForgerFluidCapacity);
+        json.addProperty("experienceLanternFluidCapacity", experienceLanternFluidCapacity);
+        json.addProperty("experienceLanternDrainRate", experienceLanternDrainRate);
+        json.addProperty("experienceLanternPullToggle", experienceLanternPullToggle);
+        json.addProperty("experienceLanternPullRadius", experienceLanternPullRadius);
+        json.addProperty("experienceLanternPullForceMultiplier", experienceLanternPullForceMultiplier);
+        json.addProperty("experienceLanternDrainMaidExperience", experienceLanternDrainMaidExperience);
+        json.addProperty("mechanicalGrindstoneFluidCapacity", mechanicalGrindstoneFluidCapacity);
+        return json;
+    }
+
+    public boolean experienceVaporizeOnPlacement() {
+        return experienceVaporizeOnPlacement;
+    }
+
+    public int printerFluidCapacity() {
+        return printerFluidCapacity;
+    }
+
+    public boolean enableWrittenBookPrinting() {
+        return enableWrittenBookPrinting;
+    }
+
+    public boolean enableEnchantedBookPrinting() {
+        return enableEnchantedBookPrinting;
+    }
+
+    public boolean enableCreateCopiableItemPrinting() {
+        return enableCreateCopiableItemPrinting;
+    }
+
+    public boolean enablePackagePatternPrinting() {
+        return enablePackagePatternPrinting;
+    }
+
+    public boolean enablePackageAddressPrinting() {
+        return enablePackageAddressPrinting;
+    }
+
+    public boolean enableCustomNamePrinting() {
+        return enableCustomNamePrinting;
+    }
+
+    public boolean enableBannerPatternPrinting() {
+        return enableBannerPatternPrinting;
+    }
+
+    public boolean printingCustomNameAsItemName() {
+        return printingCustomNameAsItemName;
+    }
+
+    public int printingGenerationChange() {
+        return printingGenerationChange;
+    }
+
+    public float printingEnchantedBookCostMultiplier() {
+        return printingEnchantedBookCostMultiplier;
+    }
+
+    public boolean printingEnchantedBookDenylistStopCopying() {
+        return printingEnchantedBookDenylistStopCopying;
+    }
+
+    public int blazeEnchanterFluidCapacity() {
+        return blazeEnchanterFluidCapacity;
+    }
+
+    public int blazeForgerFluidCapacity() {
+        return blazeForgerFluidCapacity;
+    }
+
+    public int experienceLanternFluidCapacity() {
+        return experienceLanternFluidCapacity;
+    }
+
+    public int experienceLanternDrainRate() {
+        return experienceLanternDrainRate;
+    }
+
+    public boolean experienceLanternPullToggle() {
+        return experienceLanternPullToggle;
+    }
+
+    public int experienceLanternPullRadius() {
+        return experienceLanternPullRadius;
+    }
+
+    public float experienceLanternPullForceMultiplier() {
+        return experienceLanternPullForceMultiplier;
+    }
+
+    public boolean experienceLanternDrainMaidExperience() {
+        return experienceLanternDrainMaidExperience;
+    }
+
+    public int mechanicalGrindstoneFluidCapacity() {
+        return mechanicalGrindstoneFluidCapacity;
     }
 }

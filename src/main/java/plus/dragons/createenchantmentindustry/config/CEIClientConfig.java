@@ -1,36 +1,31 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.config;
 
-import net.createmod.catnip.config.ConfigBase;
+import com.google.gson.JsonObject;
 
-public class CEIClientConfig extends ConfigBase {
-    public final ConfigFloat experienceVisionMultiplier = f(1f, 1f, 256f,
-            "experienceVisionMultiplier",
-            Comments.experienceVisionMultiplier);
+public final class CEIClientConfig {
+    private static final float DEFAULT_EXPERIENCE_VISION_MULTIPLIER = 1.0f;
 
-    @Override
-    public String getName() {
-        return "client";
+    private final float experienceVisionMultiplier;
+
+    private CEIClientConfig(float experienceVisionMultiplier) {
+        this.experienceVisionMultiplier = experienceVisionMultiplier;
     }
 
-    static class Comments {
-        static final String experienceVisionMultiplier = "The vision range through Liquid Experience will be multiplied by this factor";
+    static CEIClientConfig defaults() {
+        return new CEIClientConfig(DEFAULT_EXPERIENCE_VISION_MULTIPLIER);
+    }
+
+    static CEIClientConfig load(CEIConfig.ConfigReader reader) {
+        return new CEIClientConfig(reader.readFloat("experienceVisionMultiplier", DEFAULT_EXPERIENCE_VISION_MULTIPLIER, 1.0f, 256.0f));
+    }
+
+    JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("experienceVisionMultiplier", experienceVisionMultiplier);
+        return json;
+    }
+
+    public float experienceVisionMultiplier() {
+        return experienceVisionMultiplier;
     }
 }

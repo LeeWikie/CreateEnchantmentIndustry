@@ -1,98 +1,121 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.common.fluids.lantern;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.simibubi.create.api.contraption.storage.fluid.MountedFluidStorageType;
-import com.simibubi.create.api.contraption.storage.fluid.WrapperMountedFluidStorage;
+import com.zurrtum.create.api.contraption.storage.fluid.MountedFluidStorageType;
+import com.zurrtum.create.api.contraption.storage.fluid.WrapperMountedFluidStorage;
+import com.zurrtum.create.foundation.fluid.FluidTank;
+import com.zurrtum.create.infrastructure.fluids.FluidStack;
+
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import plus.dragons.createenchantmentindustry.common.registry.CEIFluids;
-import plus.dragons.createenchantmentindustry.common.registry.CEIMountedStorageTypes;
+import net.minecraft.world.level.material.Fluid;
+import org.jspecify.annotations.Nullable;
+import plus.dragons.createenchantmentindustry.foundation.fluid.CEIConfigurableFluidTank;
+import plus.dragons.createenchantmentindustry.registry.CEIFluids;
+import plus.dragons.createenchantmentindustry.registry.CEIMountedStorageTypes;
 
 public class ExperienceLanternMountedStorage extends WrapperMountedFluidStorage<ExperienceLanternMountedStorage.Handler> {
-    public static final MapCodec<ExperienceLanternMountedStorage> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+    public static final MapCodec<ExperienceLanternMountedStorage> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
             ExtraCodecs.NON_NEGATIVE_INT.fieldOf("capacity").forGetter(ExperienceLanternMountedStorage::getCapacity),
-            FluidStack.OPTIONAL_CODEC.fieldOf("fluid").forGetter(ExperienceLanternMountedStorage::getFluid)).apply(i, ExperienceLanternMountedStorage::new));
+            FluidStack.OPTIONAL_CODEC.fieldOf("fluid").forGetter(ExperienceLanternMountedStorage::getFluid))
+            .apply(instance, ExperienceLanternMountedStorage::new));
 
     private boolean dirty;
 
     protected ExperienceLanternMountedStorage(MountedFluidStorageType<?> type, int capacity, FluidStack stack) {
-        super(type, new ExperienceLanternMountedStorage.Handler(capacity, stack));
-        this.wrapped.onChange = () -> this.dirty = true;
+        super(type);
+        wrapped = new Handler(capacity, stack, CEIFluids.EXPERIENCE);
     }
 
     protected ExperienceLanternMountedStorage(int capacity, FluidStack stack) {
-        this(CEIMountedStorageTypes.EXPERIENCE_LANTERN.get(), capacity, stack);
+        this(CEIMountedStorageTypes.EXPERIENCE_LANTERN, capacity, stack);
     }
 
     @Override
     public void unmount(Level level, BlockState state, BlockPos pos, @Nullable BlockEntity be) {
         if (be instanceof ExperienceLanternBlockEntity lantern) {
-            FluidTank inventory = lantern.getTank().getPrimaryHandler();
-            inventory.setFluid(this.wrapped.getFluid());
+            writeToTank(lantern.getTank(), getFluid());
         }
     }
 
     public FluidStack getFluid() {
-        return this.wrapped.getFluid();
+        return wrapped.getFluid();
     }
 
     public int getCapacity() {
-        return this.wrapped.getCapacity();
+        return wrapped.getMaxAmountPerStack();
+    }
+
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    public void markClean() {
+        dirty = false;
     }
 
     public static ExperienceLanternMountedStorage fromLantern(ExperienceLanternBlockEntity lantern) {
-        // tank has update callbacks, make an isolated copy
-        FluidTank inventory = lantern.getTank().getPrimaryHandler();
-        return new ExperienceLanternMountedStorage(inventory.getCapacity(), inventory.getFluid().copy());
+        CEIConfigurableFluidTank tank = lantern.getTank();
+        return fromTank(tank);
     }
 
-    @Override
-    public boolean isFluidValid(int tank, @NotNull FluidStack stack) {
-        return super.isFluidValid(tank, stack);
+    public static ExperienceLanternMountedStorage fromTank(CEIConfigurableFluidTank tank) {
+        return new ExperienceLanternMountedStorage(Math.toIntExact(tank.getCapacity()), toCreateStack(tank));
     }
 
-    public static final class Handler extends FluidTank {
-        private Runnable onChange = () -> {};
+    public static ExperienceLanternMountedStorage createForSmoke(int capacity, Fluid fluid, int amount) {
+        MountedFluidStorageType<ExperienceLanternMountedStorage> smokeType = new MountedFluidStorageType<>(CODEC) {
+            @Nullable
+            @Override
+            public ExperienceLanternMountedStorage mount(Level level, BlockState state, BlockPos pos, @Nullable BlockEntity be) {
+                return null;
+            }
+        };
+        return new ExperienceLanternMountedStorage(smokeType, capacity, amount <= 0 ? FluidStack.EMPTY : new FluidStack(fluid, amount), fluid);
+    }
 
-        public Handler(int capacity, FluidStack stack) {
+    private static FluidStack toCreateStack(CEIConfigurableFluidTank tank) {
+        if (tank.isEmpty()) {
+            return FluidStack.EMPTY;
+        }
+        return new FluidStack(tank.getFluidVariant().getFluid(), Math.toIntExact(tank.getAmount()));
+    }
+
+    private static void writeToTank(CEIConfigurableFluidTank tank, FluidStack stack) {
+        if (stack.isEmpty()) {
+            tank.clear();
+            return;
+        }
+        tank.setFluid(FluidVariant.of(stack.getFluid()), stack.getAmount());
+    }
+
+    private ExperienceLanternMountedStorage(MountedFluidStorageType<?> type, int capacity, FluidStack stack, Fluid acceptedFluid) {
+        super(type);
+        wrapped = new Handler(capacity, stack, acceptedFluid);
+    }
+
+    public final class Handler extends FluidTank {
+        private final Fluid acceptedFluid;
+
+        public Handler(int capacity, FluidStack stack, Fluid acceptedFluid) {
             super(capacity);
-            this.setFluid(stack);
+            this.acceptedFluid = acceptedFluid;
+            setFluid(stack);
         }
 
         @Override
-        public boolean isFluidValid(FluidStack stack) {
-            return stack.is(CEIFluids.EXPERIENCE);
+        public boolean isValid(int slot, FluidStack stack) {
+            return stack.isOf(acceptedFluid);
         }
 
         @Override
-        protected void onContentsChanged() {
-            this.onChange.run();
+        public void markDirty() {
+            dirty = true;
         }
     }
 }

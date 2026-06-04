@@ -1,35 +1,26 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.common.fluids.printer;
+
+import com.zurrtum.create.infrastructure.fluids.FluidStack;
 
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeInput;
-import net.neoforged.neoforge.fluids.FluidStack;
+import plus.dragons.createenchantmentindustry.foundation.fluid.CEIConfigurableFluidTank;
 
 public record PrintingInput(ItemStack base, ItemStack template, FluidStack fluid) implements RecipeInput {
+    public static PrintingInput fromTank(ItemStack base, ItemStack template, CEIConfigurableFluidTank tank) {
+        FluidStack fluid = tank.isEmpty()
+                ? FluidStack.EMPTY
+                : new FluidStack(tank.getFluidVariant().getFluid(), Math.toIntExact(tank.getAmount()));
+        return new PrintingInput(base, template, fluid);
+    }
+
     @Override
     public ItemStack getItem(int index) {
-        if (index == 0)
-            return base;
-        if (index == 1)
-            return template;
-        throw new IllegalArgumentException("No item for index " + index);
+        return switch (index) {
+            case 0 -> base;
+            case 1 -> template;
+            default -> throw new IllegalArgumentException("No item for index " + index);
+        };
     }
 
     @Override

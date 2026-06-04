@@ -1,138 +1,58 @@
-/*
- * Copyright (C) 2025  DragonsPlus
- * SPDX-License-Identifier: LGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package plus.dragons.createenchantmentindustry.common.fluids.printer.behaviour;
 
-import com.mojang.serialization.DataResult;
-import com.simibubi.create.AllItems;
-import com.simibubi.create.content.schematics.SchematicItem;
-import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTankBehaviour;
-import com.simibubi.create.foundation.recipe.ItemCopyingRecipe.SupportsItemCopying;
-import com.simibubi.create.foundation.utility.CreateLang;
-import java.util.List;
 import java.util.Optional;
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponentType;
-import net.minecraft.network.chat.Component;
+
+import com.zurrtum.create.foundation.recipe.ItemCopyingRecipe.SupportsItemCopying;
+
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.fluids.FluidStack;
-import plus.dragons.createenchantmentindustry.common.CEICommon;
-import plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterBlockEntity;
-import plus.dragons.createenchantmentindustry.common.registry.CEIDataMaps;
-import plus.dragons.createenchantmentindustry.config.CEIConfig;
-import plus.dragons.createenchantmentindustry.util.CEILang;
+import org.jspecify.annotations.Nullable;
+import plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterBehaviour;
+import plus.dragons.createenchantmentindustry.foundation.fluid.CEIConfigurableFluidTank;
 
 public class CopyPrintingBehaviour implements PrintingBehaviour {
     private final SupportsItemCopying itemCopying;
     private final ItemStack original;
-    private final SmartFluidTankBehaviour tank;
 
-    public CopyPrintingBehaviour(SupportsItemCopying itemCopying, ItemStack original, SmartFluidTankBehaviour tank) {
+    private CopyPrintingBehaviour(SupportsItemCopying itemCopying, ItemStack original) {
         this.itemCopying = itemCopying;
-        this.original = original;
-        this.tank = tank;
+        this.original = original.copyWithCount(1);
     }
 
-    public static Optional<DataResult<PrintingBehaviour>> create(Level level, SmartFluidTankBehaviour tank, ItemStack stack) {
-        if (stack.getItem() instanceof SupportsItemCopying copiable)
-            return Optional.of(copiable.canCopyFromItem(stack)
-                    ? DataResult.success(new CopyPrintingBehaviour(copiable, stack, tank))
-                    : DataResult.error(() -> CEICommon.asLocalization("gui.printer.copy.invalid")));
-        else if (stack.is(AllItems.SCHEMATIC))
-            return Optional.of(DataResult.success(new CopyPrintingBehaviour(SchematicItemCopying.INSTANCE, stack, tank)));
+    public static Optional<PrintingBehaviour> create(@Nullable Level level, ItemStack template) {
+        if (template.getItem() instanceof SupportsItemCopying itemCopying && itemCopying.canCopyFromItem(template)) {
+            return Optional.of(new CopyPrintingBehaviour(itemCopying, template));
+        }
+        if (template.has(DataComponents.CUSTOM_DATA)) {
+            return Optional.of(new CopyPrintingBehaviour(null, template));
+        }
         return Optional.empty();
     }
 
     @Override
-    public int getRequiredItemCount(Level level, ItemStack stack) {
-        if (itemCopying == SchematicItemCopying.INSTANCE) {
-             if(stack.is(AllItems.EMPTY_SCHEMATIC)) return 1;
-             else return 0;
+    public int getRequiredItemCount(@Nullable Level level, ItemStack stack, CEIConfigurableFluidTank tank) {
+        if (!ItemStack.isSameItem(original, stack)) {
+            return 0;
         }
-        if (ItemStack.isSameItem(original, stack) && itemCopying.canCopyToItem(stack))
-            return 1;
-        return 0;
+        if (itemCopying != null) {
+            return itemCopying.canCopyToItem(stack) ? 1 : 0;
+        }
+        return stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).equals(CustomData.EMPTY) ? 1 : 0;
     }
 
     @Override
-    public boolean isSafeNBT() {
-        return false;
+    public long getRequiredFluidAmount(@Nullable Level level, ItemStack stack, CEIConfigurableFluidTank tank) {
+        return PrinterBehaviour.DEFAULT_SPECIAL_FLUID_COST;
     }
 
     @Override
-    public int getRequiredFluidAmount(Level level, ItemStack stack, FluidStack fluidStack) {
-        var amount = fluidStack.getFluidHolder().getData(CEIDataMaps.PRINTING_COPY_INGREDIENT);
-        return amount == null ? 0 : amount;
-    }
-
-    @Override
-    public ItemStack getResult(Level level, ItemStack stack, FluidStack fluidStack) {
-        return itemCopying.createCopy(original, 1);
-    }
-
-    @Override
-    public void onFinished(Level level, BlockPos pos, PrinterBlockEntity printer) {
-        // Plays SoundEvents.BOOK_PAGE_TURN
-        level.levelEvent(1043, pos.below(), 0);
-    }
-
-    @Override
-    public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
-        CEILang.translate("gui.goggles.printing.copy").forGoggles(tooltip);
-        CEILang.item(original).style(ChatFormatting.GRAY).forGoggles(tooltip, 1);
-        var amount = tank.getPrimaryHandler().getFluid().getFluidHolder().getData(CEIDataMaps.PRINTING_COPY_INGREDIENT);
-        if (amount != null)
-            CEILang.translate("gui.goggles.printing.cost",
-                    CEILang.number(amount)
-                            .add(CreateLang.translate("generic.unit.millibuckets"))
-                            .style(amount <= CEIConfig.fluids().printerFluidCapacity.get()
-                                    ? ChatFormatting.GREEN
-                                    : ChatFormatting.RED))
-                    .forGoggles(tooltip, 1);
-        else if (!tank.getPrimaryHandler().getFluid().isEmpty()) {
-            CEILang.translate("gui.goggles.printing.incorrect_liquid").style(ChatFormatting.RED).forGoggles(tooltip);
-        }
-        return true;
-    }
-
-    private static class SchematicItemCopying implements SupportsItemCopying {
-        static SupportsItemCopying INSTANCE = new SchematicItemCopying();
-
-        @Override
-        public ItemStack createCopy(ItemStack original, int count) {
-            return original.copyWithCount(count);
-        }
-
-        @Override
-        public boolean canCopyFromItem(ItemStack item) {
-            throw new UnsupportedOperationException("this method should not be called!");
-        }
-
-        @Override
-        public boolean canCopyToItem(ItemStack item) {
-            throw new UnsupportedOperationException("this method should not be called!");
-        }
-
-        @Override
-        public DataComponentType<?> getComponentType() {
-            throw new UnsupportedOperationException("this method should not be called!");
-        }
+    public ItemStack getResult(@Nullable Level level, ItemStack stack, CEIConfigurableFluidTank tank) {
+        ItemStack copy = itemCopying == null ? original.copyWithCount(1) : itemCopying.createCopy(original, 1);
+        copy.set(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
+        copy.remove(DataComponents.STORED_ENCHANTMENTS);
+        return copy;
     }
 }
