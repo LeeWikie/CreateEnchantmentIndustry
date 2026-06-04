@@ -1,10 +1,41 @@
-## Welcome to **Create Enchantment Industry**
-A mod offering more tools and methods to handle experience & enchantment in Create.
+# Create Enchantment Industry for Create-Fly
 
-## Contribute
-Feel free to open a PR to either translate the mod or to add another feature! All help is appreciated!
-### If you want to help us to translate...
-Please find incomplete language file in `src/generated/assets/create_enchantment_industry/lang`, and submit complete language file to`src/translations/assets/create_enchantment_industry/lang`.
+Fabric port of Create: Enchantment Industry targeting Minecraft 26.1.2 and Create-Fly.
 
-## Download
-[<img src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/curseforge_vector.svg">](https://www.curseforge.com/minecraft/mc-mods/create-enchantment-industry) [<img src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/modrinth_vector.svg">](https://modrinth.com/mod/create-enchantment-industry)
+## Requirements
+
+- Java 25
+- Minecraft 26.1.2
+- Fabric Loader 0.19.2 or newer
+- Fabric API 0.148.2+26.1.2
+- Create-Fly 26.1.2 build jar
+
+## Building
+
+By default the Gradle build expects Create-Fly to be checked out next to this project and built at:
+
+```text
+../Create-Fly/build/libs/create-fly-26.1.2-6.0.9-3.jar
+```
+
+You can override that path with a Gradle property:
+
+```bash
+./gradlew clean build -Pcreate_fly_jar=/absolute/path/to/create-fly-26.1.2-6.0.9-3.jar
+```
+
+The main jar is generated under `build/libs/`.
+
+## Current Scope
+
+This port includes the core CEI content and systems for Create-Fly:
+
+- Liquid Experience and Super Experience materials
+- Experience Hatch and Experience Lantern
+- Printer
+- Mechanical Grindstone and Grindstone Drain
+- Blaze Enchanter and Blaze Forger
+- Printing and grinding recipes
+- Fabric fluid storage, JSON config, Create-Fly movement/storage/arm behavior hooks, and safe optional integration omission
+
+Optional JEI/Ponder/Curios/TLM/Aeronautics/Sable integrations are intentionally omitted until compatible Fabric/Create-Fly APIs are available.

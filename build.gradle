@@ -1,224 +1,184 @@
 plugins {
-    id "java-library"
-    id "maven-publish"
-    id "net.neoforged.moddev" version "1.0.21"
-    id "me.modmuss50.mod-publish-plugin" version "0.8.4"
-    id "com.diffplug.spotless" version "7.0.2"
+    id "net.fabricmc.fabric-loom" version "${loom_version}"
 }
 
-tasks.named("wrapper", Wrapper).configure {
-    distributionType = Wrapper.DistributionType.BIN
-}
-
-version = mod_version
-group = mod_group_id
+version = project.mod_version
+group = project.maven_group
 
 base {
-    archivesName = project.mod_artifact_id
+    archivesName = project.archives_base_name
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
-
-neoForge {
-    version = project.neo_version
-
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
-    }
-
-    accessTransformers = project.files("src/main/resources/META-INF/accesstransformer.cfg")
-
-    runs {
-        client {
-            client()
-            systemProperty "neoforge.enabledGameTestNamespaces", project.mod_id
-        }
-
-        server {
-            server()
-            programArgument "--nogui"
-            systemProperty "neoforge.enabledGameTestNamespaces", project.mod_id
-        }
-
-        gameTestServer {
-            type = "gameTestServer"
-            systemProperty "neoforge.enabledGameTestNamespaces", project.mod_id
-        }
-
-        data {
-            data()
-            programArguments.addAll "--mod", project.mod_id,
-                    "--all",
-                    "--output", file("src/generated/resources/").getAbsolutePath(),
-                    "--existing", file("src/main/resources/").getAbsolutePath(),
-                    '--existing', file('src/main/translations/').getAbsolutePath(),
-                    "--existing-mod", "create",
-                    "--existing-mod", "create_dragons_plus"
-        }
-
-        configureEach {
-            systemProperty "forge.logging.markers", "REGISTRIES"
-
-            logLevel = org.slf4j.event.Level.DEBUG
-        }
-    }
+loom {
+    splitEnvironmentSourceSets()
 
     mods {
-        "${mod_id}" {
-            sourceSet(sourceSets.main)
+        create_enchantment_industry {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
         }
     }
-}
-
-sourceSets.main.resources { srcDir "src/generated/resources" }
-
-configurations {
-    localImplementation
-    compileClasspath.extendsFrom localImplementation
-    runtimeClasspath.extendsFrom localImplementation
-    runtimeClasspath.extendsFrom localRuntime
 }
 
 repositories {
-    mavenLocal()
-    maven { url "https://maven.dragons.plus/releases" } // Create: Dragons Plus
-    maven { url "https://maven.createmod.net" } // Ponder, Flywheel
-    maven { url "https://mvn.devos.one/snapshots" } // Registrate
-    maven { url "https://maven.blamejared.com" } // JEI
-    maven { url "https://maven.theillusivec4.top/" } // Curios API
-    maven { url 'https://maven.fallenbreath.me/releases' } // Conditional Mixin
-    maven { url "https://www.cursemaven.com" }
-    maven { url "https://api.modrinth.com/maven" }
-    maven { url "https://raw.githubusercontent.com/Fuzss/modresources/main/maven" } // NeoForge config api port, needed by ponder
-    maven { url "https://maven.ryanhcode.dev/releases" } // RyanHCode Maven - Sable
+    maven {
+        name = 'Fabric'
+        url = 'https://maven.fabricmc.net/'
+    }
+    mavenCentral()
 }
 
 dependencies {
-    implementation("plus.dragons.createdragonsplus:create-dragons-plus-${minecraft_version}:${create_dragons_plus_version}")
-
-    compileOnly("mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}")
-    compileOnly("mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}")
-    localRuntime("mezz.jei:jei-${jei_minecraft_version}-neoforge:${jei_version}")
-
-    compileOnly("top.theillusivec4.curios:curios-neoforge:${curios_version}+${curios_minecraft_version}:api")
-    localRuntime("top.theillusivec4.curios:curios-neoforge:${curios_version}+${curios_minecraft_version}")
-
-    localImplementation("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}")
-    localImplementation("dev.simulated_team.simulated:simulated-neoforge-${minecraft_version}:${create_aeronautics_version}")  { transitive false }
-    localImplementation("dev.eriksonn.aeronautics:aeronautics-neoforge-${minecraft_version}:${create_aeronautics_version}")  { transitive false }
-    localImplementation("dev.ryanhcode.offroad:offroad-neoforge-${minecraft_version}:${create_aeronautics_version}")  { transitive false }
-
-    compileOnly("curse.maven:touhou-little-maid-355044:${tlm_file_id}")
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    implementation files(project.create_fly_jar)
 }
 
-var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
-    var replaceProperties = [
-            minecraft_version           : minecraft_version,
-            minecraft_version_range     : minecraft_version_range,
-            neo_version                 : neo_version,
-            neo_version_range           : neo_version_range,
-            loader_version_range        : loader_version_range,
-            mod_id                      : mod_id,
-            mod_name                    : mod_name,
-            mod_license                 : mod_license,
-            mod_version                 : mod_version,
-            mod_authors                 : mod_authors,
-            mod_description             : mod_description,
-            mod_github                  : mod_github,
-            create_version_range        : create_version_range,
-            create_dragons_plus_version_range  : create_dragons_plus_version_range
-    ]
-    inputs.properties replaceProperties
-    expand replaceProperties
-    from "src/main/templates"
-    into "build/generated/sources/modMetadata"
-}
+processResources {
+    inputs.property "version", project.version
 
-sourceSets.main.resources.srcDir generateModMetadata
-neoForge.ideSyncTask generateModMetadata
-
-tasks.withType(Jar) {
-    from "LICENSE.txt"
-    exclude ".cache"
-}
-
-spotless {
-    java {
-        endWithNewline()
-        leadingTabsToSpaces()
-        removeUnusedImports()
-        toggleOffOn()
-        importOrder()
-        eclipse().configFile "codeformat/formatter-config.xml"
-        licenseHeaderFile "codeformat/HEADER.txt"
-    }
-}
-
-build.dependsOn(spotlessApply)
-
-java {
-    withSourcesJar()
-}
-
-publishing {
-    publications {
-        register('mavenJava', MavenPublication) {
-            artifactId = mod_artifact_id + "-" + minecraft_version
-            from components.java
-        }
-    }
-    repositories {
-        maven {
-            name "DragonsPlus"
-            url "https://maven.dragons.plus/releases"
-            credentials(PasswordCredentials)
-            authentication {
-                basic(BasicAuthentication)
-            }
-        }
-    }
-}
-
-publishMods {
-    file = jar.archiveFile
-    additionalFiles.from sourcesJar.archiveFile
-    changelog = project.file("CHANGELOG.md").text
-    version = mod_version
-    type = STABLE
-    displayName = "Create: Enchantment Industry ${mod_version} for Create ${minecraft_version}-${create_version_production}"
-    modLoaders.add("neoforge")
-
-    curseforge {
-        projectId = "688768"
-        accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
-        minecraftVersions.add(minecraft_version)
-
-        requires {
-            slug = "create"
-            slug = "create-dragons-plus"
-        }
-    }
-
-    modrinth {
-        projectId = "JWGBpFUP"
-        accessToken = providers.environmentVariable("MODRINTH_TOKEN")
-        minecraftVersions.add(minecraft_version)
-
-        requires {
-            slug = "create"
-            slug = "create-dragons-plus"
-        }
+    filesMatching("fabric.mod.json") {
+        expand "version": inputs.properties.version
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = "UTF-8" // Use the UTF-8 charset for Java compilation
+    it.options.release = 25
 }
 
-idea {
-    module {
-        downloadSources = true
-        downloadJavadoc = true
-    }
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
+
+tasks.register('printerSmokeValid', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterSmokeHarness'
+    args 'valid', '../.sisyphus/evidence/task-12-printer-valid.log'
+}
+
+tasks.register('printerSmokeInvalid', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterSmokeHarness'
+    args 'invalid', '../.sisyphus/evidence/task-12-printer-invalid.log'
+}
+
+tasks.register('printerSmokeSaveLoad', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterSmokeHarness'
+    args 'save-load', '../.sisyphus/evidence/task-12-printer-save-load.log'
+}
+
+tasks.register('printerSmokeCopy', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterSmokeHarness'
+    args 'copy', '../.sisyphus/evidence/task-12-printer-copy.log'
+}
+
+tasks.register('printerSmokeCustomName', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterSmokeHarness'
+    args 'custom-name', '../.sisyphus/evidence/task-12-printer-custom-name.log'
+}
+
+tasks.register('printerSmokeBanner', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterSmokeHarness'
+    args 'banner', '../.sisyphus/evidence/task-12-printer-banner.log'
+}
+
+tasks.register('printerSmokeEnchantment', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.fluids.printer.PrinterSmokeHarness'
+    args 'enchantment', '../.sisyphus/evidence/task-12-printer-enchantment.log'
+}
+
+tasks.register('grindstoneSmokePowered', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.kinetics.grindstone.GrindstoneSmokeHarness'
+    args 'powered', '../.sisyphus/evidence/task-13-powered-grinding.log'
+}
+
+tasks.register('grindstoneSmokeNoPower', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.kinetics.grindstone.GrindstoneSmokeHarness'
+    args 'no-power', '../.sisyphus/evidence/task-13-no-power.log'
+}
+
+tasks.register('grindstoneSmokeWrongSpeed', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.kinetics.grindstone.GrindstoneSmokeHarness'
+    args 'wrong-speed', '../.sisyphus/evidence/task-13-wrong-speed.log'
+}
+
+tasks.register('grindstoneSmokeDrainStorage', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.kinetics.grindstone.GrindstoneSmokeHarness'
+    args 'drain-storage', '../.sisyphus/evidence/task-13-drain-storage.log'
+}
+
+tasks.register('blazeEnchanterSmokeNormal', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.processing.enchanter.BlazeEnchanterSmokeHarness'
+    args 'normal', '../.sisyphus/evidence/task-14-normal-enchanting.log'
+}
+
+tasks.register('blazeEnchanterSmokeDenied', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.processing.enchanter.BlazeEnchanterSmokeHarness'
+    args 'denied', '../.sisyphus/evidence/task-14-denied-enchantment.log'
+}
+
+
+tasks.register('blazeForgerSmokeValid', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.processing.forger.BlazeForgerSmokeHarness'
+    args 'valid', '../.sisyphus/evidence/task-15-valid-forging.log'
+}
+
+tasks.register('blazeForgerSmokeInvalid', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.processing.forger.BlazeForgerSmokeHarness'
+    args 'invalid', '../.sisyphus/evidence/task-15-invalid-forging.log'
+}
+
+
+tasks.register('createBehaviourSmokeArm', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.processing.CreateBehaviourSmokeHarness'
+    args 'arm', '../.sisyphus/evidence/task-20-arm-interaction.log'
+}
+
+tasks.register('createBehaviourSmokeStorage', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.common.processing.CreateBehaviourSmokeHarness'
+    args 'storage', '../.sisyphus/evidence/task-20-contraption-storage.log'
+}
+
+tasks.register('clientRendererCoverage', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.client.runtimeClasspath
+    mainClass = 'plus.dragons.createenchantmentindustry.CEIClientRendererCoverage'
+    args '../.sisyphus/evidence/task-19-client-renderers.log'
+}
+
+check.dependsOn tasks.named('clientRendererCoverage')
