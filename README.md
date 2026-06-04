@@ -42,6 +42,27 @@ This port includes the core CEI content and systems for Create-Fly:
 
 Optional JEI/Ponder/Curios/TLM/Aeronautics/Sable integrations are intentionally omitted until compatible Fabric/Create-Fly APIs are available.
 
+## Dev Build
+
+To produce a development jar with verbose diagnostic logging:
+
+```bash
+./gradlew clean build -Pmod_version=0.1.0-dev.1
+```
+
+This overrides `mod_version` at build time without modifying `gradle.properties`. The resulting jar version contains `dev`, which triggers `[CEI DEV DEBUG]` output in the Minecraft log.
+
+### Dev Debug Logs
+
+When the mod version contains `dev` (for example `0.1.0-dev.1`) or Fabric Loader reports a development environment, CEI logs `INFO`-level diagnostics prefixed with `[CEI DEV DEBUG]` during startup. Look for these lines in the Minecraft game log (`logs/latest.log`). The output includes:
+
+- Mod version, environment type, Fabric Loader / Minecraft / Fabric API / Create versions
+- Config file path and a summary of all settings (kinetics, fluids, enchantments, processing, stress)
+- Registry and content overview (blocks, items, fluids, block entities, recipe types, behaviour hooks)
+- No per-tick logging is added
+
+The debug output is **disabled by default** in the stable release (`0.1.0`). Production jars without `dev` in the version string will not emit `[CEI DEV DEBUG]` lines.
+
 ## License
 
 This fork follows the original Create Enchantment Industry license: LGPL-3.0-or-later. See `LICENSE.txt`.
