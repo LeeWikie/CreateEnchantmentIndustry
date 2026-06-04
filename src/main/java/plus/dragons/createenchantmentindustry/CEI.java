@@ -15,6 +15,7 @@ public final class CEI implements ModInitializer {
     public void onInitialize() {
         CEIConfig.init();
         CEIRegistration.register();
+        CEIDevDebug.logDiagnostics();
         LOGGER.info("Create Enchantment Industry initialized with Fabric Liquid Experience support.");
     }
 }
